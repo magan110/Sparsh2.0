@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "758293349054",
+    "project_id": "login-56e93",
+    "storage_bucket": "login-56e93.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:758293349054:android:ae6644a6710c0544b654ef",
+        "android_client_info": {
+          "package_name": "com.example.learning2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAyzJLUTgUv3q3ZGj8du3t3MW3kf4x0Pws"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

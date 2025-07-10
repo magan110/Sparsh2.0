@@ -1,0 +1,2 @@
+E:/basics/android/app/.cxx/Debug/z5e25303/armeabi-v7a/CMakeFiles/edit_cache.dir
+E:/basics/android/app/.cxx/Debug/z5e25303/armeabi-v7a/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,2 @@
+C:/Users/MAGAN/Desktop/New-Sparsh-minimal-branch/android/app/.cxx/Debug/5o2j613r/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/MAGAN/Desktop/New-Sparsh-minimal-branch/android/app/.cxx/Debug/5o2j613r/armeabi-v7a/CMakeFiles/rebuild_cache.dir

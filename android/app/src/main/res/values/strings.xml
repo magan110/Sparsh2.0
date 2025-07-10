@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SPARSH</string>
+    <string name="location_service_channel_name">Location Service</string>
+    <string name="location_service_channel_description">Used for tracking location in the background</string>
+</resources>
