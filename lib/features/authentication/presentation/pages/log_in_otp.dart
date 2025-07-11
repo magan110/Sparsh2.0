@@ -5,6 +5,10 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:learning2/features/dashboard/presentation/pages/home_screen.dart';
 import 'package:learning2/core/constants/fonts.dart';
+import 'package:learning2/core/components/advanced_3d/advanced_3d_components.dart';
+import 'package:learning2/core/utils/responsive_design.dart';
+import 'package:learning2/core/utils/form_validators/form_validators.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 // Although not used in this specific screen, keeping if needed elsewhere
 
 class LogInOtp extends StatefulWidget {
@@ -196,95 +200,129 @@ class _LogInOtpState extends State<LogInOtp>
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: Colors.transparent,
+        backgroundColor: SparshTheme.scaffoldBackground,
+        appBar: Advanced3DAppBar(
+          title: 'OTP Verification',
+          centerTitle: true,
+          backgroundColor: SparshTheme.primaryBlue,
+          elevation: 8,
           leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios, color: Colors.blue.shade700),
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
             onPressed: () => Navigator.pop(context),
           ),
         ),
         body: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            padding: ResponsiveSpacing.all(context, 24),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header
+                  // Header Card
                   FadeTransition(
                     opacity: _fadeAnimation,
                     child: SlideTransition(
                       position: _slideAnimation,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'OTP Verification',
-                            style: Fonts.bodyBold.copyWith(fontSize: 32),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Enter your mobile number to receive OTP',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey.shade600,
+                      child: Advanced3DCard(
+                        width: ResponsiveUtil.getScreenWidth(context),
+                        padding: ResponsiveSpacing.all(context, 24),
+                        borderRadius: 20,
+                        enableGlassMorphism: true,
+                        backgroundColor: SparshTheme.primaryBlue,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.security,
+                                  size: 32,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'OTP Verification',
+                                        style: TextStyle(
+                                          fontSize: ResponsiveTypography.headingLarge(context),
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Secure authentication',
+                                        style: TextStyle(
+                                          fontSize: ResponsiveTypography.bodyText1(context),
+                                          color: Colors.white70,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: ResponsiveSpacing.all(context, 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Enter your mobile number to receive OTP',
+                                style: TextStyle(
+                                  fontSize: ResponsiveTypography.bodyText1(context),
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
 
                   // Mobile Number Field
                   FadeTransition(
                     opacity: _fadeAnimation,
                     child: SlideTransition(
                       position: _slideAnimation,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Mobile Number',
-                            style: Fonts.body.copyWith(fontWeight: FontWeight.w600, fontSize: 14),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(15),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.shade200,
-                                  blurRadius: 10,
-                                  spreadRadius: 2,
-                                ),
-                              ],
+                      child: Advanced3DCard(
+                        padding: ResponsiveSpacing.all(context, 20),
+                        backgroundColor: SparshTheme.cardBackground,
+                        borderRadius: 20,
+                        enableGlassMorphism: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Mobile Number',
+                              style: TextStyle(
+                                fontSize: ResponsiveTypography.bodyText1(context),
+                                fontWeight: FontWeight.w600,
+                                color: SparshTheme.textPrimary,
+                              ),
                             ),
-                            child: TextFormField(
+                            const SizedBox(height: 12),
+                            Advanced3DTextField(
                               controller: _phoneController,
+                              hintText: 'Enter 10-digit mobile number',
                               keyboardType: TextInputType.phone,
                               inputFormatters: [
                                 FilteringTextInputFormatter.digitsOnly,
                                 LengthLimitingTextInputFormatter(10),
                               ],
-                              style: const TextStyle(fontSize: 16),
-                              decoration: InputDecoration(
-                                hintText: 'Enter 10-digit mobile number',
-                                prefixIcon: Icon(
-                                  Icons.phone_android,
-                                  color: Colors.blue.shade700,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(15),
-                                  borderSide: BorderSide.none,
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
+                              prefixIcon: Icon(
+                                Icons.phone_android,
+                                color: SparshTheme.primaryBlue,
                               ),
+                              borderRadius: 15,
+                              backgroundColor: SparshTheme.cardBackground,
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Please enter your mobile number';
@@ -295,8 +333,8 @@ class _LogInOtpState extends State<LogInOtp>
                                 return null;
                               },
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -307,50 +345,40 @@ class _LogInOtpState extends State<LogInOtp>
                     opacity: _fadeAnimation,
                     child: SlideTransition(
                       position: _slideAnimation,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Enter OTP',
-                            style: Fonts.body.copyWith(fontWeight: FontWeight.w600, fontSize: 14),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(15),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.shade200,
-                                  blurRadius: 10,
-                                  spreadRadius: 2,
-                                ),
-                              ],
+                      child: Advanced3DCard(
+                        padding: ResponsiveSpacing.all(context, 20),
+                        backgroundColor: SparshTheme.cardBackground,
+                        borderRadius: 20,
+                        enableGlassMorphism: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Enter OTP',
+                              style: TextStyle(
+                                fontSize: ResponsiveTypography.bodyText1(context),
+                                fontWeight: FontWeight.w600,
+                                color: SparshTheme.textPrimary,
+                              ),
                             ),
-                            child: TextFormField(
+                            const SizedBox(height: 12),
+                            Advanced3DTextField(
                               controller: _otpController,
+                              hintText: 'Enter 6-digit OTP',
                               keyboardType: TextInputType.number,
                               inputFormatters: [
                                 FilteringTextInputFormatter.digitsOnly,
                                 LengthLimitingTextInputFormatter(6),
                               ],
-                              style: const TextStyle(fontSize: 16),
-                              decoration: InputDecoration(
-                                hintText: 'Enter 6-digit OTP',
-                                prefixIcon: Icon(
-                                  Icons.lock_outline,
-                                  color: Colors.blue.shade700,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(15),
-                                  borderSide: BorderSide.none,
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
+                              prefixIcon: Icon(
+                                Icons.lock_outline,
+                                color: SparshTheme.primaryBlue,
                               ),
+                              borderRadius: 15,
+                              backgroundColor: SparshTheme.cardBackground,
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Please enter the OTP';
+                                  return 'Please enter OTP';
                                 }
                                 if (value.length != 6) {
                                   return 'Please enter a valid 6-digit OTP';
@@ -358,90 +386,87 @@ class _LogInOtpState extends State<LogInOtp>
                                 return null;
                               },
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 32),
 
-                  // Send OTP Button
+                  // Action Buttons
                   FadeTransition(
                     opacity: _fadeAnimation,
                     child: SlideTransition(
                       position: _slideAnimation,
-                      child: Container(
-                        width: double.infinity,
-                        height: 55,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.blue.shade700.withOpacity(0.3),
-                              blurRadius: 10,
-                              spreadRadius: 2,
+                      child: Column(
+                        children: [
+                          if (!_isOtpSent)
+                            Advanced3DButton(
+                              onPressed: sendOTP,
+                              backgroundColor: SparshTheme.primaryBlue,
+                              foregroundColor: Colors.white,
+                              padding: ResponsiveSpacing.symmetric(context, horizontal: 32, vertical: 16),
+                              borderRadius: 15,
+                              width: ResponsiveUtil.getScreenWidth(context),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.send, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Send OTP',
+                                    style: TextStyle(
+                                      fontSize: ResponsiveTypography.bodyText1(context),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (_isOtpSent) ...[
+                            Advanced3DButton(
+                              onPressed: verifyOTP,
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              padding: ResponsiveSpacing.symmetric(context, horizontal: 32, vertical: 16),
+                              borderRadius: 15,
+                              width: ResponsiveUtil.getScreenWidth(context),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.verified, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Verify OTP',
+                                    style: TextStyle(
+                                      fontSize: ResponsiveTypography.bodyText1(context),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Advanced3DButton(
+                              onPressed: _canResend ? sendOTP : null,
+                              backgroundColor: _canResend ? SparshTheme.primaryBlue : SparshTheme.cardBackground,
+                              foregroundColor: _canResend ? Colors.white : SparshTheme.textSecondary,
+                              padding: ResponsiveSpacing.symmetric(context, horizontal: 32, vertical: 12),
+                              borderRadius: 15,
+                              width: ResponsiveUtil.getScreenWidth(context),
+                              child: Text(
+                                _canResend ? 'Resend OTP' : 'Resend OTP in $_resendTimer seconds',
+                                style: TextStyle(
+                                  fontSize: ResponsiveTypography.bodyText1(context),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ],
-                        ),
-                        child: ElevatedButton(
-                          onPressed: sendOTP,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue.shade700,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: const Text(
-                            'Send OTP',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 30),
-
-                  // Resend OTP Timer/Button
-                  if (_isOtpSent)
-                    FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: SlideTransition(
-                        position: _slideAnimation,
-                        child: Center(
-                          child: TextButton(
-                            onPressed:
-                                _canResend
-                                    ? () {
-                                      if (_formKey.currentState!.validate()) {
-                                        _startResendTimer();
-                                        _showAlertDialog(
-                                          'OTP Resent',
-                                          'New OTP has been sent to ${_phoneController.text}',
-                                        );
-                                      }
-                                    }
-                                    : null,
-                            child: Text(
-                              _canResend
-                                  ? 'Resend OTP'
-                                  : 'Resend OTP in $_resendTimer seconds',
-                              style: TextStyle(
-                                color:
-                                    _canResend
-                                        ? Colors.blue.shade700
-                                        : Colors.grey,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -450,4 +475,3 @@ class _LogInOtpState extends State<LogInOtp>
       ),
     );
   }
-}

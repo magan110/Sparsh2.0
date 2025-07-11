@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:learning2/core/theme/app_theme.dart';
+import 'package:learning2/core/components/advanced_3d/advanced_3d_components.dart';
+import 'package:learning2/core/utils/responsive_design.dart';
+import 'package:learning2/core/utils/form_validators/form_validators.dart';
 
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -25,7 +28,12 @@ class DsrEntry extends StatefulWidget {
   State<DsrEntry> createState() => _DsrEntryState();
 }
 
-class _DsrEntryState extends State<DsrEntry> {
+class _DsrEntryState extends State<DsrEntry> with TickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _scaleAnimation;
+
   final List<String> _activityItems = [
     'Personal Visit',
     'Phone Call with Builder/Stockist',
@@ -59,6 +67,39 @@ class _DsrEntryState extends State<DsrEntry> {
 
   final _formKey = GlobalKey<FormState>();
 
+  @override
+  void initState() {
+    super.initState();
+    _setupAnimations();
+  }
+
+  void _setupAnimations() {
+    _animController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+    );
+
+    _slideAnimation = Tween<double>(begin: 50.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.elasticOut),
+    );
+
+    _animController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
   void _navigateTo(String label) {
     final map = {
       'Personal Visit': () => const DsrRetailerInOut(),
@@ -88,64 +129,72 @@ class _DsrEntryState extends State<DsrEntry> {
     } else if (maxWidth >= 600) {
       crossAxisCount = 3;
     }
+    
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        childAspectRatio: 0.6, // Changed from 0.8 to 0.6 for taller cards
-        crossAxisSpacing: SparshSpacing.md,
-        mainAxisSpacing: SparshSpacing.md,
+        childAspectRatio: 0.6,
+        crossAxisSpacing: ResponsiveUtil.scaledSize(context, 16),
+        mainAxisSpacing: ResponsiveUtil.scaledSize(context, 16),
       ),
       itemCount: _activityItems.length,
       itemBuilder: (context, i) {
         final label = _activityItems[i];
         final selected = _selectedActivity == label;
-        return GestureDetector(
+        
+        return Advanced3DCard(
           onTap: () {
             setState(() => _selectedActivity = label);
             _navigateTo(label);
           },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: EdgeInsets.all(SparshSpacing.lg),
-            decoration: BoxDecoration(
-              color: SparshTheme.cardBackground,
-              borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
-              boxShadow: [
-                BoxShadow(
-                  color: SparshTheme.textPrimary.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-              border: Border.all(
-                color: selected ? SparshTheme.primaryBlueAccent : SparshTheme.borderGrey,
-                width: selected ? 2 : 1,
-              ),
-            ),
+          backgroundColor: selected 
+              ? SparshTheme.primaryBlue.withOpacity(0.1) 
+              : SparshTheme.cardBackground,
+          borderRadius: 16,
+          enableGlassMorphism: true,
+          child: Padding(
+            padding: ResponsiveSpacing.all(context, 16),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
-                    color: SparshTheme.primaryBlueAccent.withOpacity(0.1),
+                    color: selected
+                        ? SparshTheme.primaryBlue
+                        : SparshTheme.primaryBlue.withOpacity(0.1),
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: SparshTheme.primaryBlue.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  padding: EdgeInsets.all(SparshSpacing.lg),
                   child: Icon(
                     _activityIcons[label] ?? Icons.assignment,
-                    size: SparshIconSize.lg,
-                    color: SparshTheme.primaryBlueAccent,
+                    size: 30,
+                    color: selected 
+                        ? Colors.white 
+                        : SparshTheme.primaryBlue,
                   ),
                 ),
-                SizedBox(height: SparshSpacing.sm),
+                const SizedBox(height: 12),
                 Text(
                   label,
                   textAlign: TextAlign.center,
-                  softWrap: true,
-                  style: SparshTypography.bodySmall.copyWith(fontWeight: FontWeight.w600, color: SparshTheme.primaryBlueAccent),
+                  style: TextStyle(
+                    fontSize: ResponsiveTypography.bodyText2(context),
+                    fontWeight: FontWeight.w600,
+                    color: selected 
+                        ? SparshTheme.primaryBlue 
+                        : SparshTheme.textPrimary,
+                  ),
                 ),
               ],
             ),
@@ -176,108 +225,142 @@ class _DsrEntryState extends State<DsrEntry> {
     return SafeArea(
       child: Scaffold(
         backgroundColor: SparshTheme.scaffoldBackground,
-        appBar: AppBar(
+        appBar: Advanced3DAppBar(
+          title: 'DSR Entry',
+          centerTitle: true,
+          backgroundColor: SparshTheme.primaryBlue,
+          elevation: 8,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const HomeScreen()),
             ),
           ),
-          title: Row(
-            children: [
-              const Icon(Icons.assignment_outlined, size: SparshIconSize.xxl),
-              SizedBox(width: SparshSpacing.sm),
-              Text(
-                'DSR Entry',
-                style: Theme.of(context)
-                    .textTheme
-                    .displaySmall
-                    ?.copyWith(color: Colors.white),
-              ),
-            ],
-          ),
-          backgroundColor: SparshTheme.primaryBlueAccent,
-          elevation: 0,
-          shape: const RoundedRectangleBorder(
-            borderRadius:
-            BorderRadius.only(bottomLeft: Radius.circular(SparshBorderRadius.xl), bottomRight: Radius.circular(SparshBorderRadius.xl)),
-          ),
         ),
-        body: LayoutBuilder(builder: (context, constraints) {
-          return SingleChildScrollView(
-            padding: EdgeInsets.all(SparshSpacing.lg),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Instructions
-                  Container(
-                    padding: EdgeInsets.all(SparshSpacing.lg),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2196F3),
-                      borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
-                      boxShadow: [
-                        BoxShadow(
-                          color: SparshTheme.textTertiary.withOpacity(0.3),
-                          blurRadius: 5,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Wrap(
-                          spacing: SparshSpacing.sm,
-                          crossAxisAlignment: WrapCrossAlignment.center,
+        body: AnimatedBuilder(
+          animation: _animController,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(0, _slideAnimation.value),
+              child: Opacity(
+                opacity: _fadeAnimation.value,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      padding: ResponsiveSpacing.all(context, 16),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Icon(Icons.info_outline, color: Colors.white, size: SparshIconSize.xxl),
-                            Text('Instructions',
-                                style: SparshTypography.heading5.copyWith(color: Colors.white)),
+                            // Header Card
+                            Transform.scale(
+                              scale: _scaleAnimation.value,
+                              child: Advanced3DCard(
+                                width: ResponsiveUtil.getScreenWidth(context),
+                                padding: ResponsiveSpacing.all(context, 20),
+                                borderRadius: 20,
+                                enableGlassMorphism: true,
+                                backgroundColor: SparshTheme.primaryBlue,
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.assignment_outlined,
+                                          size: 32,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'DSR Entry',
+                                                style: TextStyle(
+                                                  fontSize: ResponsiveTypography.headingLarge(context),
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                              Text(
+                                                'Daily Sales Report Entry',
+                                                style: TextStyle(
+                                                  fontSize: ResponsiveTypography.bodyText1(context),
+                                                  color: Colors.white70,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Container(
+                                      padding: ResponsiveSpacing.all(context, 16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.info_outline,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Select an activity type to proceed with your DSR entry',
+                                              style: TextStyle(
+                                                fontSize: ResponsiveTypography.bodyText2(context),
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Activity Selection
+                            Advanced3DCard(
+                              padding: ResponsiveSpacing.all(context, 20),
+                              backgroundColor: SparshTheme.cardBackground,
+                              borderRadius: 20,
+                              enableGlassMorphism: true,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Select Activity Type',
+                                    style: TextStyle(
+                                      fontSize: ResponsiveTypography.headingMedium(context),
+                                      fontWeight: FontWeight.bold,
+                                      color: SparshTheme.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildActivityGrid(constraints.maxWidth),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                        SizedBox(height: SparshSpacing.sm),
-                        Text(
-                          'Fill in the details below to submit your daily sales report.',
-                          style: SparshTypography.body.copyWith(color: Colors.white70),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: SparshSpacing.xl),
-
-                  // Activity Information
-                  Container(
-                    padding: EdgeInsets.all(SparshSpacing.lg),
-                    decoration: BoxDecoration(
-                      color: SparshTheme.cardBackground,
-                      borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
-                      boxShadow: [
-                        BoxShadow(
-                          color: SparshTheme.textTertiary.withOpacity(0.3),
-                          blurRadius: 5,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.only(left: SparshSpacing.sm, bottom: SparshSpacing.xs),
-                          child: Text('Activity Type',
-                              style: SparshTypography.bodyLarge.copyWith(fontWeight: FontWeight.w600, color: SparshTheme.textPrimary)),
-                        ),
-                        _buildActivityGrid(constraints.maxWidth),
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-          );
-        }),
+            );
+          },
+        ),
       ),
     );
   }
