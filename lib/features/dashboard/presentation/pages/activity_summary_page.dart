@@ -3,6 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+import 'package:learning2/core/components/advanced_3d/advanced_3d_components.dart';
+import 'package:learning2/core/utils/responsive_design.dart';
+import 'package:learning2/core/utils/form_validators/form_validators.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 
 class ActivitySummaryPage extends StatefulWidget {
   const ActivitySummaryPage({super.key});
@@ -11,7 +15,7 @@ class ActivitySummaryPage extends StatefulWidget {
   State<ActivitySummaryPage> createState() => _ActivitySummaryPageState();
 }
 
-class _ActivitySummaryPageState extends State<ActivitySummaryPage> {
+class _ActivitySummaryPageState extends State<ActivitySummaryPage> with TickerProviderStateMixin {
   // List of report types for the searchable dropdown
   final List<String> reportTypes = [
     'Zone Wise',
@@ -22,7 +26,6 @@ class _ActivitySummaryPageState extends State<ActivitySummaryPage> {
     'Employee Wise Total - Summary',
     'Employee wise - Sampling & Collection',
     'Incentive Employee Wise Dashboard',
-    // ... add more as needed
   ];
 
   // Currently selected report type
@@ -32,34 +35,58 @@ class _ActivitySummaryPageState extends State<ActivitySummaryPage> {
   final TextEditingController _startDateController = TextEditingController();
   final TextEditingController _endDateController = TextEditingController();
 
-  // Date formatter “dd/MM/yyyy”
+  // Date formatter "dd/MM/yyyy"
   final DateFormat _dateFormatter = DateFormat('dd/MM/yyyy');
+
+  // Animation controllers
+  late AnimationController _animController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
 
-    // Default to first report type (or null if you prefer)
+    // Default to first report type
     _selectedReportType = reportTypes.first;
 
     // Default end date → today
     DateTime now = DateTime.now();
     _endDateController.text = _dateFormatter.format(now);
 
-    // Leave startDate blank or set a default:
+    // Leave startDate blank
     _startDateController.text = '';
+    
+    _setupAnimations();
+  }
+
+  void _setupAnimations() {
+    _animController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+    );
+    
+    _slideAnimation = Tween<double>(begin: 30.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
+    
+    _animController.forward();
   }
 
   @override
   void dispose() {
     _startDateController.dispose();
     _endDateController.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
-  /// Opens a DatePicker and updates the given controller
-  Future<void> _pickDate(
-      BuildContext context, TextEditingController controller) async {
+  /// Date picker helper
+  Future<void> _pickDate(BuildContext context, TextEditingController controller) async {
     DateTime initialDate;
     try {
       initialDate = _dateFormatter.parse(controller.text);
@@ -73,6 +100,7 @@ class _ActivitySummaryPageState extends State<ActivitySummaryPage> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
+
     if (picked != null) {
       setState(() {
         controller.text = _dateFormatter.format(picked);
@@ -80,358 +108,318 @@ class _ActivitySummaryPageState extends State<ActivitySummaryPage> {
     }
   }
 
-  /// Returns “As on DD/MM/YYYY at HH:MM:SS” for the current moment
-  String _formattedTimestamp() {
-    DateTime now = DateTime.now();
-    String datePart = _dateFormatter.format(now);
-    String timePart = DateFormat('HH:mm:ss').format(now);
-    return 'As on $datePart at $timePart';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      // Full-screen blue gradient background
-      decoration: const BoxDecoration(
-        color: Colors.blue,
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          // Transparent AppBar so gradient appears behind it
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-          title: const Text(
-            'Activity Summary – Confidential',
-            style: TextStyle(color: Colors.white),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(12.0),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                bool isMobile = constraints.maxWidth < 600;
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // The white rounded “filter card”
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.98),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 16, horizontal: 16),
-                      child: isMobile
-                          ? _buildMobileLayout()
-                          : _buildTabletDesktopLayout(),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Build the vertical (mobile) layout
-  Widget _buildMobileLayout() {
+  Widget _buildReportTypeSection() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Report Type
-        const Text('Report Type', style: TextStyle(fontSize: 14)),
-        const SizedBox(height: 6),
+        Text(
+          'Report Type',
+          style: ResponsiveTypography.titleMedium(context).copyWith(
+            color: SparshTheme.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        SizedBox(height: ResponsiveSpacing.medium(context)),
         DropdownSearch<String>(
           items: reportTypes,
           selectedItem: _selectedReportType,
-          onChanged: (value) {
+          onChanged: (String? newValue) {
             setState(() {
-              _selectedReportType = value;
+              _selectedReportType = newValue;
             });
           },
           dropdownDecoratorProps: DropDownDecoratorProps(
             dropdownSearchDecoration: InputDecoration(
-              contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+              labelText: 'Select Report Type',
+              labelStyle: ResponsiveTypography.bodyMedium(context).copyWith(
+                color: SparshTheme.textSecondary,
               ),
               filled: true,
-              fillColor: Colors.grey.shade50,
+              fillColor: SparshTheme.lightBlueBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: SparshTheme.borderGrey),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: SparshTheme.primaryBlue, width: 2),
+              ),
             ),
           ),
-          dropdownBuilder: (context, selectedItem) {
-            return Text(
-              selectedItem ?? '',
-              overflow: TextOverflow.ellipsis,
-            );
-          },
           popupProps: PopupProps.menu(
             showSearchBox: true,
             searchFieldProps: TextFieldProps(
               decoration: InputDecoration(
-                hintText: "Search...",
+                hintText: 'Search report type...',
+                prefixIcon: Icon(Icons.search, color: SparshTheme.primaryBlue),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 16),
+      ],
+    );
+  }
 
-        // Start Date
-        const Text('Start Date', style: TextStyle(fontSize: 14)),
-        const SizedBox(height: 6),
-        GestureDetector(
-          onTap: () => _pickDate(context, _startDateController),
-          child: AbsorbPointer(
-            child: TextField(
-              controller: _startDateController,
-              decoration: _inputDecoration(
-                hintText: 'DD/MM/YYYY',
-                suffixIcon: const Icon(Icons.calendar_today),
-              ),
-            ),
+  Widget _buildDateRangeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Date Range',
+          style: ResponsiveTypography.titleMedium(context).copyWith(
+            color: SparshTheme.textPrimary,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 16),
-
-        // End Date
-        const Text('End Date', style: TextStyle(fontSize: 14)),
-        const SizedBox(height: 6),
-        GestureDetector(
-          onTap: () => _pickDate(context, _endDateController),
-          child: AbsorbPointer(
-            child: TextField(
-              controller: _endDateController,
-              decoration: _inputDecoration(
-                hintText: 'DD/MM/YYYY',
-                suffixIcon: const Icon(Icons.calendar_today),
+        SizedBox(height: ResponsiveSpacing.medium(context)),
+        
+        ResponsiveBuilder(
+          mobile: Column(
+            children: [
+              _buildDateField(
+                controller: _startDateController,
+                labelText: 'Start Date',
+                hintText: 'Select start date',
               ),
-            ),
+              SizedBox(height: ResponsiveSpacing.medium(context)),
+              _buildDateField(
+                controller: _endDateController,
+                labelText: 'End Date',
+                hintText: 'Select end date',
+              ),
+            ],
+          ),
+          tablet: Row(
+            children: [
+              Expanded(
+                child: _buildDateField(
+                  controller: _startDateController,
+                  labelText: 'Start Date',
+                  hintText: 'Select start date',
+                ),
+              ),
+              SizedBox(width: ResponsiveSpacing.medium(context)),
+              Expanded(
+                child: _buildDateField(
+                  controller: _endDateController,
+                  labelText: 'End Date',
+                  hintText: 'Select end date',
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
+      ],
+    );
+  }
 
-        // Go button + Timestamp
-        Row(
-          children: [
-            ElevatedButton(
-              onPressed: () {
-                // TODO: implement Go logic
-                debugPrint('--- GO PRESSED ---');
-                debugPrint('Report Type: $_selectedReportType');
-                debugPrint('Start Date: ${_startDateController.text}');
-                debugPrint('End Date: ${_endDateController.text}');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                minimumSize: const Size(80, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Go', style: TextStyle(fontSize: 16)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                _formattedTimestamp(),
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade700,
-                ),
-              ),
+  Widget _buildDateField({
+    required TextEditingController controller,
+    required String labelText,
+    required String hintText,
+  }) {
+    return GestureDetector(
+      onTap: () => _pickDate(context, controller),
+      child: Advanced3DTextFormField(
+        controller: controller,
+        labelText: labelText,
+        hintText: hintText,
+        readOnly: true,
+        suffixIcon: Icon(
+          Icons.calendar_today,
+          color: SparshTheme.primaryBlue,
+        ),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Please select a date';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildGenerateButton() {
+    return Advanced3DButton(
+      text: 'Generate Summary',
+      onPressed: () {
+        _generateReport();
+      },
+      backgroundColor: SparshTheme.primaryBlue,
+      textColor: Colors.white,
+      borderRadius: 12,
+      elevation: 8,
+      enableGlassMorphism: true,
+      icon: Icons.summarize,
+    );
+  }
+
+  void _generateReport() {
+    if (_selectedReportType == null) {
+      _showErrorDialog('Please select a report type');
+      return;
+    }
+
+    if (_startDateController.text.isEmpty || _endDateController.text.isEmpty) {
+      _showErrorDialog('Please select both start and end dates');
+      return;
+    }
+
+    // TODO: Implement actual report generation
+    _showSuccessDialog();
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Error'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
             ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
-  /// Build the horizontal (tablet/desktop) layout
-  Widget _buildTabletDesktopLayout() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // 1) Report Type (flex: 3)
-        Expanded(
-          flex: 3,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Report Type', style: TextStyle(fontSize: 14)),
-              const SizedBox(height: 6),
-              DropdownSearch<String>(
-                items: reportTypes,
-                selectedItem: _selectedReportType,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedReportType = value;
-                  });
-                },
-                dropdownDecoratorProps: DropDownDecoratorProps(
-                  dropdownSearchDecoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                  ),
-                ),
-                dropdownBuilder: (context, selectedItem) {
-                  return Text(
-                    selectedItem ?? '',
-                    overflow: TextOverflow.ellipsis,
-                  );
-                },
-                popupProps: PopupProps.menu(
-                  showSearchBox: true,
-                  searchFieldProps: TextFieldProps(
-                    decoration: InputDecoration(
-                      hintText: "Search...",
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-
-        // 2) Start Date (flex: 2)
-        Expanded(
-          flex: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Start Date', style: TextStyle(fontSize: 14)),
-              const SizedBox(height: 6),
-              GestureDetector(
-                onTap: () => _pickDate(context, _startDateController),
-                child: AbsorbPointer(
-                  child: TextField(
-                    controller: _startDateController,
-                    decoration: _inputDecoration(
-                      hintText: 'DD/MM/YYYY',
-                      suffixIcon: const Icon(Icons.calendar_today),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-
-        // 3) End Date (flex: 2)
-        Expanded(
-          flex: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('End Date', style: TextStyle(fontSize: 14)),
-              const SizedBox(height: 6),
-              GestureDetector(
-                onTap: () => _pickDate(context, _endDateController),
-                child: AbsorbPointer(
-                  child: TextField(
-                    controller: _endDateController,
-                    decoration: _inputDecoration(
-                      hintText: 'DD/MM/YYYY',
-                      suffixIcon: const Icon(Icons.calendar_today),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-
-        // 4) Go Button (fixed width)
-        ElevatedButton(
-          onPressed: () {
-            // TODO: implement Go logic
-            debugPrint('--- GO PRESSED ---');
-            debugPrint('Report Type: $_selectedReportType');
-            debugPrint('Start Date: ${_startDateController.text}');
-            debugPrint('End Date: ${_endDateController.text}');
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            minimumSize: const Size(80, 48),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Success'),
+          content: Text('Generating ${_selectedReportType} report from ${_startDateController.text} to ${_endDateController.text}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
             ),
-          ),
-          child: const Text('Go', style: TextStyle(fontSize: 16)),
-        ),
-        const SizedBox(width: 16),
-
-        // 5) Timestamp (flex: 3)
-        Expanded(
-          flex: 3,
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              _formattedTimestamp(),
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade700,
-              ),
-            ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
-  /// Common InputDecoration for all text fields
-  InputDecoration _inputDecoration(
-      {String? hintText, Widget? suffixIcon, bool enabled = true}) {
-    return InputDecoration(
-      hintText: hintText,
-      filled: true,
-      fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade200,
-      enabled: enabled,
-      suffixIcon: suffixIcon,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: SparshTheme.scaffoldBackground,
+      appBar: AppBar(
+        title: Text(
+          'Activity Summary',
+          style: ResponsiveTypography.titleLarge(context).copyWith(
+            color: SparshTheme.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: SparshTheme.cardBackground,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: SparshTheme.primaryBlue),
+      ),
+      body: AnimatedBuilder(
+        animation: _animController,
+        builder: (context, child) {
+          return FadeTransition(
+            opacity: _fadeAnimation,
+            child: Transform.translate(
+              offset: Offset(0, _slideAnimation.value),
+              child: SingleChildScrollView(
+                padding: ResponsiveSpacing.paddingMedium(context),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header Card
+                    Advanced3DCard(
+                      padding: ResponsiveSpacing.paddingLarge(context),
+                      backgroundColor: SparshTheme.cardBackground,
+                      borderRadius: 20,
+                      enableGlassMorphism: true,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: ResponsiveSpacing.paddingSmall(context),
+                            decoration: BoxDecoration(
+                              color: SparshTheme.primaryBlue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.summarize,
+                              color: SparshTheme.primaryBlue,
+                              size: ResponsiveUtil.scaledSize(context, 24),
+                            ),
+                          ),
+                          SizedBox(width: ResponsiveSpacing.medium(context)),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Activity Summary',
+                                  style: ResponsiveTypography.headlineSmall(context).copyWith(
+                                    color: SparshTheme.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Generate detailed activity reports',
+                                  style: ResponsiveTypography.bodyMedium(context).copyWith(
+                                    color: SparshTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    SizedBox(height: ResponsiveSpacing.large(context)),
+                    
+                    // Form Card
+                    Advanced3DCard(
+                      padding: ResponsiveSpacing.paddingLarge(context),
+                      backgroundColor: SparshTheme.cardBackground,
+                      borderRadius: 20,
+                      enableGlassMorphism: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Generate Report',
+                            style: ResponsiveTypography.titleLarge(context).copyWith(
+                              color: SparshTheme.textPrimary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: ResponsiveSpacing.large(context)),
+                          
+                          // Report Type Section
+                          _buildReportTypeSection(),
+                          SizedBox(height: ResponsiveSpacing.large(context)),
+                          
+                          // Date Range Section
+                          _buildDateRangeSection(),
+                          SizedBox(height: ResponsiveSpacing.large(context)),
+                          
+                          // Generate Button
+                          _buildGenerateButton(),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
