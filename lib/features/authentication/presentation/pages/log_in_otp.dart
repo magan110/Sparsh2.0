@@ -5,6 +5,10 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:learning2/features/dashboard/presentation/pages/home_screen.dart';
 import 'package:learning2/core/constants/fonts.dart';
+import 'package:learning2/core/components/advanced_3d/advanced_3d_components.dart';
+import 'package:learning2/core/utils/responsive_design.dart';
+import 'package:learning2/core/utils/form_validators/form_validators.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 // Although not used in this specific screen, keeping if needed elsewhere
 
 class LogInOtp extends StatefulWidget {
@@ -196,15 +200,281 @@ class _LogInOtpState extends State<LogInOtp>
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: Colors.transparent,
+        backgroundColor: SparshTheme.scaffoldBackground,
+        appBar: Advanced3DAppBar(
+          title: 'OTP Verification',
+          centerTitle: true,
+          backgroundColor: SparshTheme.primaryBlue,
+          elevation: 8,
           leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios, color: Colors.blue.shade700),
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
             onPressed: () => Navigator.pop(context),
           ),
         ),
+        body: SingleChildScrollView(
+          child: Padding(
+            padding: ResponsiveSpacing.all(context, 24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Card
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: Advanced3DCard(
+                        width: ResponsiveUtil.getScreenWidth(context),
+                        padding: ResponsiveSpacing.all(context, 24),
+                        borderRadius: 20,
+                        enableGlassMorphism: true,
+                        backgroundColor: SparshTheme.primaryBlue,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.security,
+                                  size: 32,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'OTP Verification',
+                                        style: TextStyle(
+                                          fontSize: ResponsiveTypography.headingLarge(context),
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Secure authentication',
+                                        style: TextStyle(
+                                          fontSize: ResponsiveTypography.bodyText1(context),
+                                          color: Colors.white70,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: ResponsiveSpacing.all(context, 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Enter your mobile number to receive OTP',
+                                style: TextStyle(
+                                  fontSize: ResponsiveTypography.bodyText1(context),
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Mobile Number Field
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: Advanced3DCard(
+                        padding: ResponsiveSpacing.all(context, 20),
+                        backgroundColor: SparshTheme.cardBackground,
+                        borderRadius: 20,
+                        enableGlassMorphism: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Mobile Number',
+                              style: TextStyle(
+                                fontSize: ResponsiveTypography.bodyText1(context),
+                                fontWeight: FontWeight.w600,
+                                color: SparshTheme.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Advanced3DTextField(
+                              controller: _phoneController,
+                              hintText: 'Enter 10-digit mobile number',
+                              keyboardType: TextInputType.phone,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(10),
+                              ],
+                              prefixIcon: Icon(
+                                Icons.phone_android,
+                                color: SparshTheme.primaryBlue,
+                              ),
+                              borderRadius: 15,
+                              backgroundColor: SparshTheme.cardBackground,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter your mobile number';
+                                }
+                                if (value.length != 10) {
+                                  return 'Please enter a valid 10-digit mobile number';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // OTP Field
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: Advanced3DCard(
+                        padding: ResponsiveSpacing.all(context, 20),
+                        backgroundColor: SparshTheme.cardBackground,
+                        borderRadius: 20,
+                        enableGlassMorphism: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Enter OTP',
+                              style: TextStyle(
+                                fontSize: ResponsiveTypography.bodyText1(context),
+                                fontWeight: FontWeight.w600,
+                                color: SparshTheme.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Advanced3DTextField(
+                              controller: _otpController,
+                              hintText: 'Enter 6-digit OTP',
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(6),
+                              ],
+                              prefixIcon: Icon(
+                                Icons.lock_outline,
+                                color: SparshTheme.primaryBlue,
+                              ),
+                              borderRadius: 15,
+                              backgroundColor: SparshTheme.cardBackground,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter OTP';
+                                }
+                                if (value.length != 6) {
+                                  return 'Please enter a valid 6-digit OTP';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Action Buttons
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: Column(
+                        children: [
+                          if (!_isOtpSent)
+                            Advanced3DButton(
+                              onPressed: sendOTP,
+                              backgroundColor: SparshTheme.primaryBlue,
+                              foregroundColor: Colors.white,
+                              padding: ResponsiveSpacing.symmetric(context, horizontal: 32, vertical: 16),
+                              borderRadius: 15,
+                              width: ResponsiveUtil.getScreenWidth(context),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.send, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Send OTP',
+                                    style: TextStyle(
+                                      fontSize: ResponsiveTypography.bodyText1(context),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (_isOtpSent) ...[
+                            Advanced3DButton(
+                              onPressed: verifyOTP,
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              padding: ResponsiveSpacing.symmetric(context, horizontal: 32, vertical: 16),
+                              borderRadius: 15,
+                              width: ResponsiveUtil.getScreenWidth(context),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.verified, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Verify OTP',
+                                    style: TextStyle(
+                                      fontSize: ResponsiveTypography.bodyText1(context),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Advanced3DButton(
+                              onPressed: _canResend ? sendOTP : null,
+                              backgroundColor: _canResend ? SparshTheme.primaryBlue : SparshTheme.cardBackground,
+                              foregroundColor: _canResend ? Colors.white : SparshTheme.textSecondary,
+                              padding: ResponsiveSpacing.symmetric(context, horizontal: 32, vertical: 12),
+                              borderRadius: 15,
+                              width: ResponsiveUtil.getScreenWidth(context),
+                              child: Text(
+                                _canResend ? 'Resend OTP' : 'Resend OTP in $_resendTimer seconds',
+                                style: TextStyle(
+                                  fontSize: ResponsiveTypography.bodyText1(context),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
         body: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
