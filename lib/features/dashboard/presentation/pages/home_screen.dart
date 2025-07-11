@@ -23,6 +23,9 @@ import 'universal_outlet_registration_page.dart';
 import 'mail_screen.dart';
 import 'package:learning2/core/constants/fonts.dart';
 import 'package:learning2/core/theme/app_theme.dart';
+import 'package:learning2/core/components/advanced_3d/advanced_3d_components.dart';
+import 'package:learning2/core/utils/responsive_design.dart';
+import 'package:learning2/core/utils/form_validators/form_validators.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,10 +34,15 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   bool _isSearchVisible = false;
   final TextEditingController _searchController = TextEditingController();
+  
+  // Animation controllers
+  late AnimationController _animController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
 
   // List of searchable items (screens and reports) now comes from appRoutes
   List<_SearchItem> get _searchItems => appRoutes
@@ -56,10 +64,29 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
+  }
+
+  void _setupAnimations() {
+    _animController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+    );
+    
+    _slideAnimation = Tween<double>(begin: 30.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
+    
+    _animController.forward();
   }
 
   @override
   void dispose() {
+    _animController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -88,55 +115,49 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Scaffold(
         backgroundColor: SparshTheme.scaffoldBackground,
-        appBar: _buildAppBar(),
+        appBar: _buildAdvanced3DAppBar(),
         drawer: const AppDrawer(),
-        body: Stack(
-          children: [
-            // The currently active screen (HomeContent / Dashboard / Mail / Profile):
-            _currentScreen,
-            // The search-overlay (if _isSearchVisible):
-            _buildSearchInput(context),
-          ],
+        body: AnimatedBuilder(
+          animation: _fadeAnimation,
+          builder: (context, child) {
+            return FadeTransition(
+              opacity: _fadeAnimation,
+              child: Transform.translate(
+                offset: Offset(0, _slideAnimation.value),
+                child: Stack(
+                  children: [
+                    // The currently active screen (HomeContent / Dashboard / Mail / Profile):
+                    _currentScreen,
+                    // The search-overlay (if _isSearchVisible):
+                    _buildAdvanced3DSearchInput(context),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
-        bottomNavigationBar: _buildPremiumBottomBar(),
+        bottomNavigationBar: _buildAdvanced3DBottomBar(),
       ),
     );
   }
 
-  /// Builds the gradient AppBar with a search-icon and notifications-icon.
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      elevation: 4,
-      flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          gradient: SparshTheme.appBarGradient,
+  /// Builds the advanced 3D gradient AppBar with search and notifications.
+  PreferredSizeWidget _buildAdvanced3DAppBar() {
+    return Advanced3DAppBar(
+      title: 'SPARSH',
+      centerTitle: true,
+      leading: Builder(
+        builder: (context) => Advanced3DButton(
+          onPressed: () => Scaffold.of(context).openDrawer(),
+          style: Advanced3DButtonStyle.icon,
+          icon: Icons.menu,
+          iconColor: Colors.white,
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
         ),
       ),
-      title: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.star, color: Colors.white, size: 28),
-          SizedBox(width: 8),
-          Text(
-            'SPARSH',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ],
-      ),
-      centerTitle: true,
-      iconTheme: const IconThemeData(color: Colors.white),
       actions: [
-        IconButton(
-          icon: const Icon(
-            Icons.notifications_none,
-            size: 28,
-            color: Colors.white,
-          ),
+        Advanced3DButton(
           onPressed: () {
             Navigator.push(
               context,
@@ -145,64 +166,66 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           },
+          style: Advanced3DButtonStyle.icon,
+          icon: Icons.notifications_none,
+          iconColor: Colors.white,
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
         ),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (Widget child, Animation<double> animation) {
             return ScaleTransition(scale: animation, child: child);
           },
-          child:
-              _isSearchVisible
-                  ? const SizedBox(width: 48, height: 48)
-                  : IconButton(
-                    key: const ValueKey('search_icon'),
-                    icon: const Icon(
-                      Icons.search,
-                      size: 28,
-                      color: Colors.white,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isSearchVisible = true;
-                      });
-                    },
-                  ),
+          child: _isSearchVisible
+              ? const SizedBox(width: 48, height: 48)
+              : Advanced3DButton(
+                  key: const ValueKey('search_icon'),
+                  onPressed: () {
+                    setState(() {
+                      _isSearchVisible = true;
+                    });
+                  },
+                  style: Advanced3DButtonStyle.icon,
+                  icon: Icons.search,
+                  iconColor: Colors.white,
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                ),
         ),
       ],
     );
   }
 
-  /// The sliding search bar that appears on top of everything else.
-  Widget _buildSearchInput(BuildContext context) {
+  /// The advanced 3D search bar that appears on top of everything else.
+  Widget _buildAdvanced3DSearchInput(BuildContext context) {
     return AnimatedOpacity(
       opacity: _isSearchVisible ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 300),
       child: Visibility(
         visible: _isSearchVisible,
-        child: Container(
-          color: Colors.white,
+        child: Advanced3DCard(
+          margin: ResponsiveSpacing.paddingMedium(context),
+          elevation: 8,
+          borderRadius: 20,
+          enableGlassMorphism: true,
+          backgroundColor: SparshTheme.cardBackground,
+          shadowColor: SparshTheme.primaryBlue.withOpacity(0.1),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
+              Advanced3DTextField(
                 controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search for reports, screens, etc...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      setState(() {
-                        _isSearchVisible = false;
-                        _searchController.clear();
-                        _filteredSearchItems = [];
-                      });
-                    },
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                  ),
-                ),
+                hintText: 'Search for reports, screens, etc...',
+                prefixIcon: Icons.search,
+                suffixIcon: Icons.close,
+                onSuffixIconPressed: () {
+                  setState(() {
+                    _isSearchVisible = false;
+                    _searchController.clear();
+                    _filteredSearchItems = [];
+                  });
+                },
                 onChanged: (value) {
                   setState(() {
                     _filteredSearchItems = value.isEmpty
@@ -229,19 +252,31 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemCount: _filteredSearchItems.length,
                     itemBuilder: (context, index) {
                       final item = _filteredSearchItems[index];
-                      return ListTile(
-                        title: Text(item.title),
-                        subtitle: Text(item.type),
-                        onTap: () {
-                          setState(() {
-                            _isSearchVisible = false;
-                            _searchController.clear();
-                            _filteredSearchItems = [];
-                          });
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (ctx) => item.builder(ctx)),
-                          );
-                        },
+                      return Advanced3DCard(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        elevation: 2,
+                        borderRadius: 12,
+                        backgroundColor: SparshTheme.lightBlueBackground,
+                        child: ListTile(
+                          title: Text(
+                            item.title,
+                            style: ResponsiveTypography.titleMedium(context),
+                          ),
+                          subtitle: Text(
+                            item.type,
+                            style: ResponsiveTypography.bodySmall(context),
+                          ),
+                          onTap: () {
+                            setState(() {
+                              _isSearchVisible = false;
+                              _searchController.clear();
+                              _filteredSearchItems = [];
+                            });
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (ctx) => item.builder(ctx)),
+                            );
+                          },
+                        ),
                       );
                     },
                   ),
@@ -253,8 +288,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Bottom navigation bar with a center "floating QR scanner" button.
-  Widget _buildPremiumBottomBar() {
+  /// Advanced 3D Bottom navigation bar with center floating QR scanner button.
+  Widget _buildAdvanced3DBottomBar() {
     final List<Map<String, dynamic>> navItems = [
       {
         'icon': Icons.home_outlined,
@@ -634,22 +669,23 @@ class _HomeContentState extends State<HomeContent> {
 
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: ResponsiveSpacing.paddingMedium(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 10),
+            SizedBox(height: ResponsiveSpacing.medium(context)),
             _buildBanner(),
-            const SizedBox(height: 20),
+            SizedBox(height: ResponsiveSpacing.large(context)),
             _sectionTitle("Mostly Used Apps"),
-            const SizedBox(height: 10),
+            SizedBox(height: ResponsiveSpacing.medium(context)),
             _mostlyUsedApps(screenWidth, screenHeight),
-            const SizedBox(height: 20),
-            const HorizontalMenu(),
-            const SizedBox(height: 20),
+            SizedBox(height: ResponsiveSpacing.large(context)),
+            const Advanced3DHorizontalMenu(),
+            SizedBox(height: ResponsiveSpacing.large(context)),
             _sectionTitle("Quick Menu"),
-            const SizedBox(height: 10),
+            SizedBox(height: ResponsiveSpacing.medium(context)),
             _quickMenu(screenHeight, screenWidth),
+            SizedBox(height: ResponsiveSpacing.large(context)),
           ],
         ),
       ),
@@ -658,15 +694,18 @@ class _HomeContentState extends State<HomeContent> {
 
   Widget _sectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4.0),
+      padding: ResponsiveSpacing.paddingHorizontalMedium(context),
       child: Text(
         title,
-        style: Fonts.bodyBold,
+        style: ResponsiveTypography.headlineSmall(context).copyWith(
+          color: SparshTheme.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
 
-  /// Three-column Quick Menu with 14 items (icons + labels).
+  /// Three-column Quick Menu with Advanced 3D components.
   Widget _quickMenu(double screenHeight, double screenWidth) {
     final List<Map<String, String>> quickMenuItems = [
       {
@@ -708,129 +747,134 @@ class _HomeContentState extends State<HomeContent> {
       {'image': 'assets/employee_dashboard.png', 'label': 'RPL 6\nEnrolment'},
     ];
 
-    // Three columns to match your screenshot. Adjust to 4 if you'd prefer a 4-column layout.
-    final double itemWidth = screenWidth / 3;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.all(Radius.circular(12.0)),
-        border: Border.all(color: Colors.grey.shade300, width: 1),
-        color: Colors.white,
-      ),
-      child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3, // ← 3 columns for Quick Menu
-          crossAxisSpacing: 12.0,
-          mainAxisSpacing: 16.0,
-          childAspectRatio: 0.85, // Adjusted to accommodate button-style items
-        ),
-        itemCount: quickMenuItems.length,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemBuilder: (context, index) {
-          final item = quickMenuItems[index];
-          return InkWell(
-            onTap: () {
-              if (item['label']!.contains('Painter KYC\nTracking')) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const PainterKycTrackingPage(),
-                  ),
-                );
-              } else if (item['label']!.contains(
-                'Universal Outlets\nRegistration',
-              )) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const UniversalOutletRegistrationPage(),
-                  ),
-                );
-              } else if (item['label']!.contains('Retailer\nRegistration')) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const RetailerRegistrationPage(),
-                  ),
-                );
-              } else if (item['label']!.contains('Accounts\nStatement')) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AccountsStatementPage(),
-                  ),
-                );
-              } else if (item['label']!.contains('Scheme\nDocument')) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SchemeDocumentPage()),
-                );
-              } else if (item['label']!.contains('Activity\nSummary')) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ActivitySummaryPage(),
-                  ),
-                );
-              } else if (item['label']!.contains('Employee\nDashBoard')) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const EmployeeDashboardPage(),
-                  ),
-                );
-              } else if (item['label']!.contains('GRC\nLead Entry')) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const GrcLeadEntryPage()),
-                );
-              }
-            },
-            child: _buildQuickMenuItem(
+    return Advanced3DCard(
+      margin: ResponsiveSpacing.paddingMedium(context),
+      elevation: 6,
+      borderRadius: 20,
+      enableGlassMorphism: true,
+      backgroundColor: SparshTheme.cardBackground,
+      shadowColor: SparshTheme.primaryBlue.withOpacity(0.1),
+      child: Padding(
+        padding: ResponsiveSpacing.paddingMedium(context),
+        child: GridView.builder(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: ResponsiveSpacing.medium(context),
+            mainAxisSpacing: ResponsiveSpacing.medium(context),
+            childAspectRatio: 0.85,
+          ),
+          itemCount: quickMenuItems.length,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemBuilder: (context, index) {
+            final item = quickMenuItems[index];
+            return _buildAdvanced3DQuickMenuItem(
               item['image']!,
               item['label']!,
-              itemWidth,
-            ),
-          );
-        },
+              item,
+            );
+          },
+        ),
       ),
     );
   }
 
-  /// Helper to draw each Quick Menu icon + label.
-  Widget _buildQuickMenuItem(String imagePath, String label, double itemWidth) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Material(
-          elevation: 4.0,
-          borderRadius: BorderRadius.circular(12.0),
-          child: Container(
-            width: 56,
-            height: 56,
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12.0),
-              color: Colors.white,
+  /// Helper to build each Advanced 3D Quick Menu item.
+  Widget _buildAdvanced3DQuickMenuItem(String imagePath, String label, Map<String, String> item) {
+    return Advanced3DButton(
+      onPressed: () {
+        if (item['label']!.contains('Painter KYC\nTracking')) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const PainterKycTrackingPage(),
             ),
-            child: Image.asset(imagePath, fit: BoxFit.contain),
+          );
+        } else if (item['label']!.contains(
+          'Universal Outlets\nRegistration',
+        )) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const UniversalOutletRegistrationPage(),
+            ),
+          );
+        } else if (item['label']!.contains('Retailer\nRegistration')) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const RetailerRegistrationPage(),
+            ),
+          );
+        } else if (item['label']!.contains('Accounts\nStatement')) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const AccountsStatementPage(),
+            ),
+          );
+        } else if (item['label']!.contains('Scheme\nDocument')) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SchemeDocumentPage()),
+          );
+        } else if (item['label']!.contains('Activity\nSummary')) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const ActivitySummaryPage(),
+            ),
+          );
+        } else if (item['label']!.contains('Employee\nDashBoard')) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const EmployeeDashboardPage(),
+            ),
+          );
+        } else if (item['label']!.contains('GRC\nLead Entry')) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const GrcLeadEntryPage()),
+          );
+        }
+      },
+      style: Advanced3DButtonStyle.elevated,
+      backgroundColor: SparshTheme.lightBlueBackground,
+      shadowColor: SparshTheme.primaryBlue.withOpacity(0.15),
+      borderRadius: 16,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Advanced3DCard(
+            elevation: 4,
+            borderRadius: 16,
+            backgroundColor: SparshTheme.cardBackground,
+            shadowColor: SparshTheme.primaryBlue.withOpacity(0.1),
+            child: Container(
+              width: 56,
+              height: 56,
+              padding: const EdgeInsets.all(8),
+              child: Image.asset(imagePath, fit: BoxFit.contain),
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: Fonts.small,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: ResponsiveTypography.bodySmall(context).copyWith(
+              color: SparshTheme.textPrimary,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 
-  /// "Mostly Used Apps" row (unchanged from before):
+  /// "Mostly Used Apps" row with Advanced 3D components:
   Widget _mostlyUsedApps(double screenWidth, double screenHeight) {
     final List<Map<String, String>> mostlyUsedItems = [
       {'image': 'assets/image33.png', 'label': 'DSR', 'route': 'dsr'},
@@ -851,62 +895,66 @@ class _HomeContentState extends State<HomeContent> {
       },
     ];
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.all(Radius.circular(12.0)),
-        border: Border.all(color: Colors.grey.shade300, width: 1),
-        color: Colors.white,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children:
-            mostlyUsedItems.map((item) {
-              return Expanded(
-                child: InkWell(
-                  onTap: () {
-                    if (item['route'] == 'dsr') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const DsrEntry(),
-                        ),
-                      );
-                    } else if (item['route'] == 'scanner') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const TokenScanPage(),
-                        ),
-                      );
-                    }
-                  },
-                  child: _buildMostlyUsedAppItem(
-                    item['image']!,
-                    item['label']!,
-                  ),
+    return Advanced3DCard(
+      margin: ResponsiveSpacing.paddingMedium(context),
+      elevation: 6,
+      borderRadius: 20,
+      enableGlassMorphism: true,
+      backgroundColor: SparshTheme.cardBackground,
+      shadowColor: SparshTheme.primaryBlue.withOpacity(0.1),
+      child: Padding(
+        padding: ResponsiveSpacing.paddingMedium(context),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: mostlyUsedItems.map((item) {
+            return Expanded(
+              child: Advanced3DButton(
+                onPressed: () {
+                  if (item['route'] == 'dsr') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DsrEntry(),
+                      ),
+                    );
+                  } else if (item['route'] == 'scanner') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TokenScanPage(),
+                      ),
+                    );
+                  }
+                },
+                style: Advanced3DButtonStyle.elevated,
+                backgroundColor: SparshTheme.lightBlueBackground,
+                shadowColor: SparshTheme.primaryBlue.withOpacity(0.2),
+                borderRadius: 16,
+                child: _buildAdvanced3DMostlyUsedAppItem(
+                  item['image']!,
+                  item['label']!,
                 ),
-              );
-            }).toList(),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 
-  Widget _buildMostlyUsedAppItem(String imagePath, String text) {
+  Widget _buildAdvanced3DMostlyUsedAppItem(String imagePath, String text) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Material(
-          elevation: 4.0,
-          borderRadius: BorderRadius.circular(12.0),
+        Advanced3DCard(
+          elevation: 4,
+          borderRadius: 16,
+          backgroundColor: SparshTheme.cardBackground,
+          shadowColor: SparshTheme.primaryBlue.withOpacity(0.1),
           child: Container(
             width: 56,
             height: 56,
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12.0),
-              color: Colors.white,
-            ),
             child: Image.asset(imagePath, fit: BoxFit.contain),
           ),
         ),
@@ -914,7 +962,10 @@ class _HomeContentState extends State<HomeContent> {
         Text(
           text,
           textAlign: TextAlign.center,
-          style: Fonts.small,
+          style: ResponsiveTypography.bodySmall(context).copyWith(
+            color: SparshTheme.textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
@@ -922,72 +973,88 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-  /// Banner widget (unchanged):
+  /// Advanced 3D Banner widget with enhanced visuals.
   Widget _buildBanner() {
-    return SizedBox(
-      height: 160,
-      child: Stack(
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            itemCount: _bannerImagePaths.length,
-            onPageChanged: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    _bannerImagePaths[index],
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              );
-            },
-          ),
-          if (_bannerImagePaths.length > 1)
-            Positioned(
-              bottom: 10,
-              left: 0,
-              right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(_bannerImagePaths.length, (index) {
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    width: _currentIndex == index ? 16 : 8,
-                    height: 8,
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    decoration: BoxDecoration(
-                      color:
-                          _currentIndex == index
-                              ? Colors.blue
-                              : Colors.white.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(4),
+    return Advanced3DCard(
+      margin: ResponsiveSpacing.paddingHorizontalMedium(context),
+      elevation: 8,
+      borderRadius: 20,
+      enableGlassMorphism: true,
+      backgroundColor: SparshTheme.cardBackground,
+      shadowColor: SparshTheme.primaryBlue.withOpacity(0.2),
+      child: SizedBox(
+        height: 160,
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              itemCount: _bannerImagePaths.length,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.asset(
+                      _bannerImagePaths[index],
+                      fit: BoxFit.cover,
                     ),
-                  );
-                }),
-              ),
+                  ),
+                );
+              },
             ),
-        ],
+            if (_bannerImagePaths.length > 1)
+              Positioned(
+                bottom: 15,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(_bannerImagePaths.length, (index) {
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: _currentIndex == index ? 24 : 8,
+                      height: 8,
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      decoration: BoxDecoration(
+                        color: _currentIndex == index
+                            ? SparshTheme.primaryBlue
+                            : Colors.white.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: _currentIndex == index
+                            ? [
+                                BoxShadow(
+                                  color: SparshTheme.primaryBlue.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
+                      ),
+                    );
+                  }),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// A simple horizontal menu bar above the Quick Menu (unchanged).
-class HorizontalMenu extends StatefulWidget {
-  const HorizontalMenu({super.key});
+/// Advanced 3D horizontal menu bar with enhanced visuals.
+class Advanced3DHorizontalMenu extends StatefulWidget {
+  const Advanced3DHorizontalMenu({super.key});
 
   @override
-  State<HorizontalMenu> createState() => _HorizontalMenuState();
+  State<Advanced3DHorizontalMenu> createState() => _Advanced3DHorizontalMenuState();
 }
 
-class _HorizontalMenuState extends State<HorizontalMenu> {
+class _Advanced3DHorizontalMenuState extends State<Advanced3DHorizontalMenu> {
   String selected = "Quick Menu";
 
   final List<String> menuItems = [
@@ -1002,7 +1069,7 @@ class _HorizontalMenuState extends State<HorizontalMenu> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 48,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: menuItems.length,
@@ -1011,30 +1078,36 @@ class _HorizontalMenuState extends State<HorizontalMenu> {
           final isSelected = selected == label;
 
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                backgroundColor: isSelected ? Colors.blue : Colors.white,
-                foregroundColor: isSelected ? Colors.white : Colors.blue,
-                side: BorderSide(
-                  color: isSelected ? Colors.blue : Colors.grey.shade400,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-              ),
+            padding: ResponsiveSpacing.paddingHorizontalSmall(context),
+            child: Advanced3DButton(
               onPressed: () {
                 setState(() {
                   selected = label;
                 });
               },
+              style: isSelected 
+                  ? Advanced3DButtonStyle.elevated 
+                  : Advanced3DButtonStyle.outlined,
+              backgroundColor: isSelected 
+                  ? SparshTheme.primaryBlue 
+                  : SparshTheme.cardBackground,
+              borderColor: isSelected 
+                  ? SparshTheme.primaryBlue 
+                  : SparshTheme.borderGrey,
+              shadowColor: isSelected 
+                  ? SparshTheme.primaryBlue.withOpacity(0.3) 
+                  : Colors.transparent,
+              borderRadius: 24,
               child: Text(
                 label,
-                style: Fonts.body,
+                style: ResponsiveTypography.bodyMedium(context).copyWith(
+                  color: isSelected 
+                      ? Colors.white 
+                      : SparshTheme.textPrimary,
+                  fontWeight: isSelected 
+                      ? FontWeight.w600 
+                      : FontWeight.w500,
+                ),
               ),
             ),
           );

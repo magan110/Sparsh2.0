@@ -2,52 +2,282 @@ import 'package:flutter/material.dart';
 import 'package:learning2/core/theme/app_theme.dart';
 import 'package:learning2/features/dashboard/presentation/pages/splash_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:learning2/core/components/advanced_3d/advanced_3d_components.dart';
+import 'package:learning2/core/utils/responsive_design.dart';
+import 'package:learning2/core/utils/form_validators/form_validators.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAnimations();
+  }
+
+  void _setupAnimations() {
+    _animController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeInOut),
+      ),
+    );
+    
+    _slideAnimation = Tween<double>(begin: 80.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Interval(0.2, 0.8, curve: Curves.easeOutCubic),
+      ),
+    );
+    
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Interval(0.4, 1.0, curve: Curves.elasticOut),
+      ),
+    );
+    
+    _animController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SparshTheme.cardBackground,
+      backgroundColor: SparshTheme.scaffoldBackground,
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: AnimatedBuilder(
+          animation: _animController,
+          builder: (context, child) {
+            return FadeTransition(
+              opacity: _fadeAnimation,
+              child: Transform.translate(
+                offset: Offset(0, _slideAnimation.value),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: ResponsiveSpacing.large(context),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildAdvanced3DProfileHeader(),
+                        SizedBox(height: ResponsiveSpacing.xxLarge(context)),
+                        Padding(
+                          padding: ResponsiveSpacing.paddingHorizontalMedium(context),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildAdvanced3DSectionTitle('Account Info'),
+                              SizedBox(height: ResponsiveSpacing.medium(context)),
+                              _buildAdvanced3DInfoCard([
+                                _buildAdvanced3DTextField('Username*', Icons.person_outline),
+                                _buildAdvanced3DTextField('Email Address*', Icons.email_outlined),
+                                _buildAdvanced3DTextField('Phone Number*', Icons.phone_outlined),
+                              ]),
+                              SizedBox(height: ResponsiveSpacing.large(context)),
+                              _buildAdvanced3DSectionTitle('Dashboard Report'),
+                              SizedBox(height: ResponsiveSpacing.medium(context)),
+                              _buildAdvanced3DInfoCard([
+                                _buildAdvanced3DDropdownField('Select Report*', Icons.assessment_outlined),
+                              ]),
+                              SizedBox(height: ResponsiveSpacing.large(context)),
+                              _buildAdvanced3DSectionTitle('Personal Info'),
+                              SizedBox(height: ResponsiveSpacing.medium(context)),
+                              _buildAdvanced3DInfoCard([
+                                _buildAdvanced3DDropdownField('Gender*', Icons.person_outline),
+                                _buildAdvanced3DTextField('Address*', Icons.location_on_outlined),
+                              ]),
+                              SizedBox(height: ResponsiveSpacing.xxLarge(context)),
+                              _buildAdvanced3DLogoutButton(context),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdvanced3DProfileHeader() {
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: Advanced3DCard(
+        elevation: 16,
+        borderRadius: 32,
+        enableGlassMorphism: true,
+        backgroundColor: SparshTheme.primaryBlue,
+        shadowColor: SparshTheme.primaryBlue.withOpacity(0.4),
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: SparshTheme.primaryGradient,
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
+            ),
+          ),
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 20),
+            padding: EdgeInsets.symmetric(
+              vertical: ResponsiveSpacing.xxLarge(context),
+              horizontal: ResponsiveSpacing.large(context),
+            ),
             child: Column(
               children: [
-                _buildProfileHeader(),
-                const SizedBox(height: 28),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionTitle('Account Info'),
-                      const SizedBox(height: 14),
-                      _buildInfoCard([
-                        _buildTextField('Username*', Icons.person_outline),
-                        _buildTextField('Email Address*', Icons.email_outlined),
-                        _buildTextField('Phone Number*', Icons.phone_outlined),
-                      ]),
-                      const SizedBox(height: 22),
-                      _buildSectionTitle('Dashboard Report'),
-                      const SizedBox(height: 14),
-                      _buildInfoCard([
-                        _buildDropdownField('Select Report*', Icons.assessment_outlined),
-                      ]),
-                      const SizedBox(height: 22),
-                      _buildSectionTitle('Personal Info'),
-                      const SizedBox(height: 14),
-                      _buildInfoCard([
-                        _buildDropdownField('Gender*', Icons.person_outline),
-                        _buildTextField('Address*', Icons.location_on_outlined),
-                      ]),
-                      const SizedBox(height: 32),
-                      _buildLogoutButton(context),
-                      const SizedBox(height: 24),
-                    ],
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Advanced3DCard(
+                      elevation: 12,
+                      borderRadius: 60,
+                      backgroundColor: Colors.white.withOpacity(0.1),
+                      shadowColor: Colors.black.withOpacity(0.3),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 3,
+                          ),
+                        ),
+                        child: const CircleAvatar(
+                          radius: 52,
+                          backgroundImage: AssetImage('assets/avatar.png'),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 4,
+                      right: 8,
+                      child: Advanced3DButton(
+                        onPressed: () {
+                          // Handle camera action
+                        },
+                        style: Advanced3DButtonStyle.floating,
+                        backgroundColor: Colors.white,
+                        shadowColor: SparshTheme.primaryBlue.withOpacity(0.3),
+                        borderRadius: 50,
+                        child: const Icon(
+                          Icons.camera_alt,
+                          color: SparshTheme.primaryBlue,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: ResponsiveSpacing.medium(context)),
+                Text(
+                  'Magan',
+                  style: ResponsiveTypography.headlineLarge(context).copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
                   ),
+                ),
+                SizedBox(height: ResponsiveSpacing.small(context)),
+                Advanced3DCard(
+                  elevation: 4,
+                  borderRadius: 20,
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  shadowColor: Colors.white.withOpacity(0.1),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: ResponsiveSpacing.medium(context),
+                      vertical: ResponsiveSpacing.small(context),
+                    ),
+                    child: Text(
+                      'ID S2948',
+                      style: ResponsiveTypography.bodyMedium(context).copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: ResponsiveSpacing.small(context)),
+                Text(
+                  'IT Department',
+                  style: ResponsiveTypography.bodyMedium(context).copyWith(
+                    color: Colors.white.withOpacity(0.85),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: ResponsiveSpacing.large(context)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildAdvanced3DStatCard(
+                      icon: Icons.work_outline,
+                      value: '5',
+                      label: 'Projects',
+                    ),
+                    _buildAdvanced3DStatCard(
+                      icon: Icons.star_outline,
+                      value: '4.8',
+                      label: 'Rating',
+                    ),
+                    _buildAdvanced3DStatCard(
+                      icon: Icons.calendar_today_outlined,
+                      value: '2',
+                      label: 'Years',
+                    ),
+                  ],
+                ),
+                SizedBox(height: ResponsiveSpacing.medium(context)),
+                Wrap(
+                  spacing: ResponsiveSpacing.medium(context),
+                  runSpacing: ResponsiveSpacing.small(context),
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _buildAdvanced3DQuickAction(
+                      icon: Icons.edit_outlined,
+                      label: 'Edit',
+                      onPressed: () {
+                        // Handle edit action
+                      },
+                    ),
+                    _buildAdvanced3DQuickAction(
+                      icon: Icons.settings_outlined,
+                      label: 'Settings',
+                      onPressed: () {
+                        // Handle settings action
+                      },
+                    ),
+                    _buildAdvanced3DQuickAction(
+                      icon: Icons.notifications_outlined,
+                      label: 'Alerts',
+                      onPressed: () {
+                        // Handle alerts action
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -57,203 +287,54 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileHeader() {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: SparshTheme.primaryGradient,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
-        child: Column(
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: const CircleAvatar(
-                    radius: 48,
-                    backgroundImage: AssetImage('assets/avatar.png'),
-                  ),
-                ),
-                Positioned(
-                  bottom: 2,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.11),
-                          blurRadius: 5,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      color: SparshTheme.primaryBlue,
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Magan',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.23),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Text(
-                'ID S2948',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'IT Department',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildStatCard(
-                  icon: Icons.work_outline,
-                  value: '5',
-                  label: 'Projects',
-                ),
-                _buildStatCard(
-                  icon: Icons.star_outline,
-                  value: '4.8',
-                  label: 'Rating',
-                ),
-                _buildStatCard(
-                  icon: Icons.calendar_today_outlined,
-                  value: '2',
-                  label: 'Years',
-                ),
-              ],
-            ),
-            const SizedBox(height: 15),
-            Wrap(
-              spacing: 12,
-              runSpacing: 6,
-              alignment: WrapAlignment.center,
-              children: [
-                _buildQuickAction(icon: Icons.edit_outlined, label: 'Edit'),
-                _buildQuickAction(icon: Icons.settings_outlined, label: 'Settings'),
-                _buildQuickAction(icon: Icons.notifications_outlined, label: 'Alerts'),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
+  Widget _buildAdvanced3DSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4),
+      padding: EdgeInsets.only(left: ResponsiveSpacing.xs(context)),
       child: Text(
         title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF1976D2),
+        style: ResponsiveTypography.headlineSmall(context).copyWith(
+          fontWeight: FontWeight.w600,
+          color: SparshTheme.primaryBlue,
           letterSpacing: 0.5,
         ),
       ),
     );
   }
 
-  Widget _buildInfoCard(List<Widget> children) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+  Widget _buildAdvanced3DInfoCard(List<Widget> children) {
+    return Advanced3DCard(
+      elevation: 8,
+      borderRadius: 20,
+      enableGlassMorphism: true,
+      backgroundColor: SparshTheme.cardBackground,
+      shadowColor: SparshTheme.primaryBlue.withOpacity(0.1),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+        padding: ResponsiveSpacing.paddingLarge(context),
         child: Column(children: children),
       ),
     );
   }
 
-  Widget _buildTextField(String label, IconData icon) {
+  Widget _buildAdvanced3DTextField(String label, IconData icon) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: TextField(
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon, color: const Color(0xFF1976D2)),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF1976D2), width: 2),
-          ),
-          filled: true,
-          fillColor: const Color(0xFFF8F9FA),
-        ),
+      padding: EdgeInsets.only(bottom: ResponsiveSpacing.medium(context)),
+      child: Advanced3DTextField(
+        labelText: label,
+        prefixIcon: icon,
+        validator: (value) {
+          if (label.contains('Email')) {
+            return FormValidators.validateEmail(value);
+          } else if (label.contains('Phone')) {
+            return FormValidators.validatePhoneNumber(value);
+          } else {
+            return FormValidators.validateRequired(value, fieldName: label);
+          }
+        },
       ),
     );
   }
 
-  Widget _buildDropdownField(String label, IconData icon) {
+  Widget _buildAdvanced3DDropdownField(String label, IconData icon) {
     List<DropdownMenuItem<String>> items = [];
 
     if (label == 'Gender*') {
@@ -271,102 +352,102 @@ class ProfilePage extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon, color: const Color(0xFF1976D2)),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+      padding: EdgeInsets.only(bottom: ResponsiveSpacing.medium(context)),
+      child: Advanced3DCard(
+        elevation: 2,
+        borderRadius: 16,
+        backgroundColor: SparshTheme.lightBlueBackground,
+        shadowColor: SparshTheme.primaryBlue.withOpacity(0.1),
+        child: DropdownButtonFormField<String>(
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(icon, color: SparshTheme.primaryBlue),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: SparshTheme.primaryBlue, width: 2),
+            ),
+            filled: true,
+            fillColor: Colors.transparent,
+            labelStyle: ResponsiveTypography.bodyMedium(context).copyWith(
+              color: SparshTheme.textSecondary,
+            ),
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          items: items,
+          onChanged: (value) {},
+          icon: Icon(Icons.arrow_drop_down, color: SparshTheme.primaryBlue),
+          dropdownColor: SparshTheme.cardBackground,
+          style: ResponsiveTypography.bodyMedium(context).copyWith(
+            color: SparshTheme.textPrimary,
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF1976D2), width: 2),
-          ),
-          filled: true,
-          fillColor: const Color(0xFFF8F9FA),
         ),
-        items: items,
-        onChanged: (value) {},
-        icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF1976D2)),
-        dropdownColor: Colors.white,
       ),
     );
   }
 
-  Widget _buildLogoutButton(context) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () async {
-          final bool? confirmLogout = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Text(
-                'Logout',
-                style: TextStyle(
-                  color: Color(0xFF1976D2),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              content: const Text('Are you sure you want to logout?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(color: Color(0xFF757575)),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text(
-                    'Logout',
-                    style: TextStyle(color: Color(0xFF1976D2)),
-                  ),
-                ),
-              ],
+  Widget _buildAdvanced3DLogoutButton(BuildContext context) {
+    return Advanced3DButton(
+      onPressed: () => _handleLogout(context),
+      style: Advanced3DButtonStyle.elevated,
+      backgroundColor: SparshTheme.primaryBlue,
+      shadowColor: SparshTheme.primaryBlue.withOpacity(0.3),
+      borderRadius: 16,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.logout, color: Colors.white),
+          SizedBox(width: ResponsiveSpacing.small(context)),
+          Text(
+            'Logout',
+            style: ResponsiveTypography.bodyLarge(context).copyWith(
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              letterSpacing: 0.5,
             ),
-          );
-
-          if (confirmLogout == true) {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.clear();
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const SplashScreen()),
-            );
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          elevation: 0,
-          backgroundColor: const Color(0xFF1976D2),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
           ),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdvanced3DStatCard({
+    required IconData icon,
+    required String value,
+    required String label,
+  }) {
+    return Advanced3DCard(
+      elevation: 6,
+      borderRadius: 16,
+      backgroundColor: Colors.white.withOpacity(0.15),
+      shadowColor: Colors.white.withOpacity(0.1),
+      child: Container(
+        width: 100,
+        padding: ResponsiveSpacing.paddingMedium(context),
+        child: Column(
           children: [
-            Icon(Icons.logout, color: Colors.white),
-            SizedBox(width: 8),
+            Icon(icon, color: Colors.white, size: 24),
+            SizedBox(height: ResponsiveSpacing.small(context)),
             Text(
-              'Logout',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+              value,
+              style: ResponsiveTypography.headlineSmall(context).copyWith(
                 color: Colors.white,
-                letterSpacing: 0.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            SizedBox(height: ResponsiveSpacing.xs(context)),
+            Text(
+              label,
+              style: ResponsiveTypography.bodySmall(context).copyWith(
+                color: Colors.white.withOpacity(0.85),
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -375,38 +456,28 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatCard({
+  Widget _buildAdvanced3DQuickAction({
     required IconData icon,
-    required String value,
     required String label,
+    required VoidCallback onPressed,
   }) {
-    return Container(
-      width: 90,
-      margin: const EdgeInsets.symmetric(horizontal: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.11),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.18), width: 1),
-      ),
-      child: Column(
+    return Advanced3DButton(
+      onPressed: onPressed,
+      style: Advanced3DButtonStyle.outlined,
+      backgroundColor: Colors.white.withOpacity(0.1),
+      borderColor: Colors.white.withOpacity(0.3),
+      shadowColor: Colors.white.withOpacity(0.1),
+      borderRadius: 20,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.white, size: 22),
-          const SizedBox(height: 7),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 3),
+          Icon(icon, color: Colors.white, size: 16),
+          SizedBox(width: ResponsiveSpacing.xs(context)),
           Text(
             label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.82),
-              fontSize: 12,
+            style: ResponsiveTypography.bodySmall(context).copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -414,29 +485,73 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickAction({required IconData icon, required String label}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.14),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.18), width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 15),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+  Future<void> _handleLogout(BuildContext context) async {
+    final bool? confirmLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => Advanced3DCard(
+        elevation: 16,
+        borderRadius: 20,
+        backgroundColor: SparshTheme.cardBackground,
+        shadowColor: SparshTheme.primaryBlue.withOpacity(0.2),
+        child: AlertDialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'Logout',
+            style: ResponsiveTypography.headlineSmall(context).copyWith(
+              color: SparshTheme.primaryBlue,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
+          content: Text(
+            'Are you sure you want to logout?',
+            style: ResponsiveTypography.bodyMedium(context).copyWith(
+              color: SparshTheme.textSecondary,
+            ),
+          ),
+          actions: [
+            Advanced3DButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: Advanced3DButtonStyle.outlined,
+              backgroundColor: Colors.transparent,
+              borderColor: SparshTheme.borderGrey,
+              child: Text(
+                'Cancel',
+                style: ResponsiveTypography.bodyMedium(context).copyWith(
+                  color: SparshTheme.textSecondary,
+                ),
+              ),
+            ),
+            Advanced3DButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: Advanced3DButtonStyle.elevated,
+              backgroundColor: SparshTheme.primaryBlue,
+              shadowColor: SparshTheme.primaryBlue.withOpacity(0.3),
+              child: Text(
+                'Logout',
+                style: ResponsiveTypography.bodyMedium(context).copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+
+    if (confirmLogout == true) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const SplashScreen()),
+        );
+      }
+    }
   }
 }
