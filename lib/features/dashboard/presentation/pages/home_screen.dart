@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:learning2/features/dashboard/presentation/pages/notification_screen.dart';
-import 'package:learning2/features/dashboard/presentation/pages/profile_screen.dart';
+import 'package:learning2/features/dashboard/presentation/pages/enhanced_profile_screen.dart';
 import 'package:learning2/features/dashboard/presentation/pages/dashboard_screen.dart';
 import 'package:learning2/features/dashboard/presentation/pages/schema.dart';
 import 'package:learning2/features/dashboard/presentation/pages/token_scan.dart';
@@ -23,6 +23,10 @@ import 'universal_outlet_registration_page.dart';
 import 'mail_screen.dart';
 import 'package:learning2/core/constants/fonts.dart';
 import 'package:learning2/core/theme/app_theme.dart';
+import 'package:learning2/core/theme/theme_manager.dart';
+import 'package:learning2/core/animations/animation_library.dart';
+import 'package:learning2/core/animations/advanced_ui_components.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -47,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
     const HomeContent(),
     const DashboardScreen(),
     const MailScreen(),
-    const ProfilePage(),
+    const EnhancedProfilePage(),
   ];
 
   // The currently displayed screen:
@@ -105,39 +109,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Builds the gradient AppBar with a search-icon and notifications-icon.
   PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      elevation: 4,
-      flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          gradient: SparshTheme.appBarGradient,
-        ),
-      ),
-      title: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.star, color: Colors.white, size: 28),
-          SizedBox(width: 8),
-          Text(
-            'SPARSH',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ],
-      ),
-      centerTitle: true,
-      iconTheme: const IconThemeData(color: Colors.white),
+    return GlassAppBar(
+      title: 'SPARSH',
       actions: [
-        IconButton(
-          icon: const Icon(
-            Icons.notifications_none,
-            size: 28,
-            color: Colors.white,
-          ),
-          onPressed: () {
+        AnimatedMicroIcon(
+          icon: Icons.notifications_none,
+          alternateIcon: Icons.notifications_active,
+          size: 28,
+          color: Colors.white,
+          onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -146,28 +126,28 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
         ),
+        const SizedBox(width: 16),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (Widget child, Animation<double> animation) {
             return ScaleTransition(scale: animation, child: child);
           },
-          child:
-              _isSearchVisible
-                  ? const SizedBox(width: 48, height: 48)
-                  : IconButton(
-                    key: const ValueKey('search_icon'),
-                    icon: const Icon(
-                      Icons.search,
-                      size: 28,
-                      color: Colors.white,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isSearchVisible = true;
-                      });
-                    },
-                  ),
+          child: _isSearchVisible
+              ? const SizedBox(width: 48, height: 48)
+              : AnimatedMicroIcon(
+                  key: const ValueKey('search_icon'),
+                  icon: Icons.search,
+                  size: 28,
+                  color: Colors.white,
+                  enableBounce: true,
+                  onTap: () {
+                    setState(() {
+                      _isSearchVisible = true;
+                    });
+                  },
+                ),
         ),
+        const SizedBox(width: 16),
       ],
     );
   }
@@ -179,8 +159,9 @@ class _HomeScreenState extends State<HomeScreen> {
       duration: const Duration(milliseconds: 300),
       child: Visibility(
         visible: _isSearchVisible,
-        child: Container(
-          color: Colors.white,
+        child: GlassMorphismContainer(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -188,10 +169,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: 'Search for reports, screens, etc...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
+                  prefixIcon: AnimatedMicroIcon(
+                    icon: Icons.search,
+                    size: 24,
+                    color: SparshTheme.primaryBlue,
+                  ),
+                  suffixIcon: AnimatedMicroIcon(
+                    icon: Icons.close,
+                    size: 24,
+                    color: SparshTheme.textSecondary,
+                    onTap: () {
                       setState(() {
                         _isSearchVisible = false;
                         _searchController.clear();
@@ -200,8 +187,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
+                    borderRadius: BorderRadius.circular(12.0),
+                    borderSide: BorderSide.none,
                   ),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.8),
                 ),
                 onChanged: (value) {
                   setState(() {
@@ -223,15 +213,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               if (_filteredSearchItems.isNotEmpty)
                 Container(
+                  margin: const EdgeInsets.only(top: 8),
                   constraints: const BoxConstraints(maxHeight: 300),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _filteredSearchItems.length,
-                    itemBuilder: (context, index) {
-                      final item = _filteredSearchItems[index];
-                      return ListTile(
-                        title: Text(item.title),
-                        subtitle: Text(item.type),
+                  child: StaggeredListView(
+                    children: _filteredSearchItems.map((item) {
+                      return FloatingPanel(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        padding: const EdgeInsets.all(12),
                         onTap: () {
                           setState(() {
                             _isSearchVisible = false;
@@ -242,8 +230,33 @@ class _HomeScreenState extends State<HomeScreen> {
                             MaterialPageRoute(builder: (ctx) => item.builder(ctx)),
                           );
                         },
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.launch,
+                              size: 20,
+                              color: SparshTheme.primaryBlue,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.title,
+                                    style: SparshTypography.labelLarge,
+                                  ),
+                                  Text(
+                                    item.type,
+                                    style: SparshTypography.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       );
-                    },
+                    }).toList(),
                   ),
                 ),
             ],
@@ -365,10 +378,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           // "Scheme" tab: directly open Schema() screen
                           _updateCurrentScreen(index, screen: const Schema());
                         } else if (index == 4) {
-                          // "Profile" tab:
+                          // "Profile" tab: pass theme manager to enhanced profile
+                          final themeManager = context.read<ThemeManager>();
                           _updateCurrentScreen(
                             index,
-                            screen: const ProfilePage(),
+                            screen: EnhancedProfilePage(themeManager: themeManager),
                           );
                         } else {
                           _updateCurrentScreen(index);
@@ -444,60 +458,16 @@ class _HomeScreenState extends State<HomeScreen> {
             onTap: () {
               _updateCurrentScreen(2, screen: const TokenScanPage());
             },
-            child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.blueAccent.shade400,
-                        Colors.blueAccent.shade700,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.blueAccent.withValues(alpha: 0.4),
-                        blurRadius: 15,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 5),
-                      ),
-                      BoxShadow(
-                        color: Colors.blueAccent.withValues(alpha: 0.2),
-                        blurRadius: 20,
-                        spreadRadius: 5,
-                        offset: Offset.zero,
-                      ),
-                    ],
-                    border: Border.all(color: Colors.white, width: 4),
-                  ),
-                  child: const Icon(
-                    Icons.qr_code_scanner,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                )
-                .animate(onPlay: (controller) => controller.repeat())
-                .shimmer(
-                  delay: 1000.ms,
-                  duration: 1800.ms,
-                  color: Colors.white.withValues(alpha: 0.3),
-                )
-                .scale(
-                  begin: const Offset(1, 1),
-                  end: const Offset(1.1, 1.1),
-                  duration: 1000.ms,
-                  curve: Curves.easeInOut,
-                )
-                .then()
-                .scale(
-                  begin: const Offset(1.1, 1.1),
-                  end: const Offset(1, 1),
-                  duration: 1000.ms,
-                  curve: Curves.easeInOut,
-                ),
+            child: Floating3DButton(
+              size: 60,
+              backgroundColor: Colors.blueAccent,
+              enableHoverEffect: true,
+              child: const Icon(
+                Icons.qr_code_scanner,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
           ),
         ),
       ],
@@ -830,7 +800,7 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-  /// "Mostly Used Apps" row (unchanged from before):
+  /// "Mostly Used Apps" row with enhanced 3D cards:
   Widget _mostlyUsedApps(double screenWidth, double screenHeight) {
     final List<Map<String, String>> mostlyUsedItems = [
       {'image': 'assets/image33.png', 'label': 'DSR', 'route': 'dsr'},
@@ -851,19 +821,19 @@ class _HomeContentState extends State<HomeContent> {
       },
     ];
 
-    return Container(
+    return GlassMorphismContainer(
       padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.all(Radius.circular(12.0)),
-        border: Border.all(color: Colors.grey.shade300, width: 1),
-        color: Colors.white,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children:
-            mostlyUsedItems.map((item) {
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: StaggeredListView(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: mostlyUsedItems.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
               return Expanded(
-                child: InkWell(
+                child: FloatingPanel(
+                  enableHover: true,
                   onTap: () {
                     if (item['route'] == 'dsr') {
                       Navigator.push(
@@ -888,6 +858,8 @@ class _HomeContentState extends State<HomeContent> {
                 ),
               );
             }).toList(),
+          ),
+        ],
       ),
     );
   }
@@ -896,18 +868,31 @@ class _HomeContentState extends State<HomeContent> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Material(
-          elevation: 4.0,
-          borderRadius: BorderRadius.circular(12.0),
-          child: Container(
+        FlipCard(
+          front: Container(
             width: 56,
             height: 56,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12.0),
-              color: Colors.white,
+              gradient: SparshTheme.cardGradient,
+              boxShadow: SparshShadows.card,
             ),
             child: Image.asset(imagePath, fit: BoxFit.contain),
+          ),
+          back: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12.0),
+              gradient: SparshTheme.primaryGradient,
+              boxShadow: SparshShadows.elevation,
+            ),
+            child: const Icon(
+              Icons.touch_app,
+              color: Colors.white,
+              size: 24,
+            ),
           ),
         ),
         const SizedBox(height: 8),

@@ -4,6 +4,8 @@ import 'package:learning2/features/dashboard/presentation/pages/home_screen.dart
 import 'package:learning2/data/network/firebase_api.dart';
 import 'package:learning2/features/dashboard/presentation/pages/notification_screen.dart';
 import 'package:learning2/core/theme/app_theme.dart';
+import 'package:learning2/core/theme/theme_manager.dart';
+import 'package:learning2/features/onboarding/presentation/pages/onboarding_screen.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
@@ -16,33 +18,39 @@ void main() async {
   // Initialize Firebase API with the notification provider
   await FirebaseApi().initNotification(notificationProvider);
 
-  // Initialize background location service
-  // final backgroundService = BackgroundLocationService();
+  // Initialize theme manager
+  final themeManager = ThemeManager();
 
-  // Initialize the service but don't auto-start it
-  // This ensures the user must manually start the service
-  // await backgroundService.initializeService(autoStart: false);
-
-  // Background service initialized but not started - user must start it manually
+  // Check onboarding status
+  OnboardingManager.checkFirstLaunch();
 
   runApp(
-    ChangeNotifierProvider.value(
-      value: notificationProvider,
-      child: const MyApp(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: notificationProvider),
+        ChangeNotifierProvider.value(value: themeManager),
+      ],
+      child: MyApp(themeManager: themeManager),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final ThemeManager themeManager;
+  
+  const MyApp({super.key, required this.themeManager});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'SPARSH',
-      theme: SparshTheme.lightTheme,
-      home: const HomeScreen(),
+    return Consumer<ThemeManager>(
+      builder: (context, themeManager, child) {
+        return ThemeAwareApp(
+          themeManager: themeManager,
+          child: OnboardingManager.isFirstLaunch 
+              ? const OnboardingScreen()
+              : const HomeScreen(),
+        );
+      },
     );
   }
 }
