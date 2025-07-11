@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:learning2/features/dsr_entry/presentation/pages/DsrVisitScreen.dart';
 import 'package:learning2/features/dashboard/presentation/pages/home_screen.dart';
-import 'package:learning2/core/network/firebase_api.dart';
+import 'package:learning2/data/network/firebase_api.dart';
 import 'package:learning2/features/dashboard/presentation/pages/notification_screen.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 import 'package:provider/provider.dart';
-import 'package:learning2/core/constants/fonts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,10 +38,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'SPARSH',
-      home: HomeScreen(),
+      theme: SparshTheme.lightTheme,
+      home: const HomeScreen(),
     );
   }
 }

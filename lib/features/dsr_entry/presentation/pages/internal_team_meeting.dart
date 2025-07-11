@@ -2,7 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
+import '../../../../core/theme/app_theme.dart';
 import 'dsr_entry.dart';
 
 class InternalTeamMeeting extends StatefulWidget {
@@ -14,7 +17,9 @@ class InternalTeamMeeting extends StatefulWidget {
 
 class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
   String? _processItem = 'Select';
-  final List<String> _processdropdownItems = ['Select', 'Add', 'Update'];
+  List<String> _processdropdownItems = ['Select'];
+  bool _isLoadingProcessTypes = true;
+  String? _processTypeError;
 
   final TextEditingController _submissionDateController = TextEditingController();
   final TextEditingController _reportDateController     = TextEditingController();
@@ -30,6 +35,69 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
   final _formKey = GlobalKey<FormState>();
 
   @override
+  void initState() {
+    super.initState();
+    _fetchProcessTypes();
+    _setSubmissionDateToToday();
+  }
+
+  Future<void> _fetchProcessTypes() async {
+    setState(() { _isLoadingProcessTypes = true; _processTypeError = null; });
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getProcessTypes');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final processTypesList = (data['ProcessTypes'] ?? data['processTypes']) as List;
+        final processTypes = processTypesList.map((type) {
+          if (type is Map) {
+            return type['Description']?.toString() ?? type['description']?.toString() ?? type['Code']?.toString() ?? type['code']?.toString() ?? '';
+          } else {
+            return type.toString();
+          }
+        }).where((type) => type.isNotEmpty).toList();
+        setState(() {
+          _processdropdownItems = ['Select', ...processTypes];
+          _isLoadingProcessTypes = false;
+        });
+      } else {
+        setState(() {
+          _processdropdownItems = ['Select'];
+          _isLoadingProcessTypes = false;
+          _processTypeError = 'Failed to load process types.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _processdropdownItems = ['Select'];
+        _isLoadingProcessTypes = false;
+        _processTypeError = 'Failed to load process types.';
+      });
+    }
+  }
+
+  void _setSubmissionDateToToday() {
+    final today = DateTime.now();
+    _submissionDateController.text = DateFormat('yyyy-MM-dd').format(today);
+  }
+
+  Future<void> _pickReportDate() async {
+    final now = DateTime.now();
+    final threeDaysAgo = now.subtract(const Duration(days: 3));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: threeDaysAgo,
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked != null) {
+      setState(() {
+        _reportDateController.text = DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _submissionDateController.dispose();
     _reportDateController.dispose();
@@ -37,32 +105,6 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
     _meetdiscController.dispose();
     _learnnngController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickSubmissionDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: DateTime(1900),
-      lastDate: DateTime(now.year + 5),
-    );
-    if (picked != null) {
-      _submissionDateController.text = DateFormat('yyyy-MM-dd').format(picked);
-    }
-  }
-
-  Future<void> _pickReportDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: DateTime(1900),
-      lastDate: DateTime(now.year + 5),
-    );
-    if (picked != null) {
-      _reportDateController.text = DateFormat('yyyy-MM-dd').format(picked);
-    }
   }
 
   void _addRow() {
@@ -105,9 +147,9 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 'Selected Images',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                style: SparshTypography.heading2.copyWith(color: SparshTheme.primaryBlueAccent),
               ),
               const SizedBox(height: 16),
               SizedBox(
@@ -125,7 +167,7 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                style: TextButton.styleFrom(foregroundColor: Colors.blueAccent),
+                style: TextButton.styleFrom(foregroundColor: SparshTheme.primaryBlueAccent),
                 child: const Text('Close'),
               ),
             ],
@@ -135,34 +177,98 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
     );
   }
 
-  void _onSubmit() {
-    if (!_formKey.currentState!.validate()) return;
+  void _onSubmit({required bool exitAfter}) async {
+    if (!_formKey.currentState!.validate()) {
+      print('Form validation failed'); // DEBUG
+      return;
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Submitted successfully. Ready for new entry.')),
-    );
+    final dsrData = {
+      'ActivityType': 'Internal Team Meetings / Review Meetings',
+      'SubmissionDate': _submissionDateController.text,
+      'ReportDate': _reportDateController.text,
+      'CreateId': 'SYSTEM',
+      'AreaCode': _processItem ?? '',
+      'Purchaser': _meetwithController.text,
+      'PurchaserCode': '',
+      'dsrRem01': _meetdiscController.text,
+      'dsrRem02': _learnnngController.text,
+      'dsrRem03': '',
+      'dsrRem04': '',
+      'dsrRem05': '',
+      'dsrRem06': '',
+      'dsrRem07': '',
+      'dsrRem08': '',
+    };
+    print('Prepared DSR Data: ' + dsrData.toString()); // DEBUG
 
-    _formKey.currentState!.reset();
-    setState(() {
-      _processItem = 'Select';
-      _submissionDateController.clear();
-      _reportDateController.clear();
-      _meetwithController.clear();
-      _meetdiscController.clear();
-      _learnnngController.clear();
-      _uploadRows
-        ..clear()
-        ..add(0);
-      _selectedImagePaths
-        ..clear()
-        ..add([]);
-    });
+    try {
+      await submitDsrEntry(dsrData);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(exitAfter
+              ? 'Submitted successfully. Exiting...'
+              : 'Submitted successfully. Ready for new entry.'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      if (exitAfter) {
+        Navigator.of(context).pop();
+      } else {
+        _formKey.currentState!.reset();
+        setState(() {
+          _processItem = 'Select';
+          _submissionDateController.clear();
+          _reportDateController.clear();
+          _meetwithController.clear();
+          _meetdiscController.clear();
+          _learnnngController.clear();
+          _uploadRows
+            ..clear()
+            ..add(0);
+          _selectedImagePaths
+            ..clear()
+            ..add([]);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Submission failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> submitDsrEntry(Map<String, dynamic> dsrData) async {
+    print('Submitting DSR Data: ' + dsrData.toString()); // DEBUG
+    final url = Uri.parse('http://192.168.36.25/api/DsrTry');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(dsrData),
+      );
+      print('API Response Status: ${response.statusCode}'); // DEBUG
+      print('API Response Body: ${response.body}'); // DEBUG
+      if (response.statusCode == 201) {
+        print('✅ Data inserted successfully!');
+      } else {
+        print('❌ Data NOT inserted! Error: ${response.body}');
+      }
+    } catch (e) {
+      print('API Exception: ${e.toString()}'); // DEBUG
+      rethrow;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: SparshTheme.scaffoldBackground,
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.push(
@@ -171,11 +277,11 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
           ),
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 22),
         ),
-        title: const Text(
+        title: Text(
           'Internal Team Meeting',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: SparshTypography.heading2.copyWith(color: Colors.white),
         ),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: SparshTheme.primaryBlue,
       ),
       body: Form(
         key: _formKey,
@@ -191,20 +297,29 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
                 elevation: 2,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: DropdownButtonFormField<String>(
-                    value: _processItem,
-                    decoration: InputDecoration(
-                      labelText: "Process Type",
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    items: _processdropdownItems
-                        .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-                        .toList(),
-                    onChanged: (val) => setState(() => _processItem = val),
-                    validator: (val) => (val == null || val == 'Select') ? 'Please select a process' : null,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_processTypeError != null)
+                        Text(_processTypeError!, style: TextStyle(color: Colors.red)),
+                      _isLoadingProcessTypes
+                        ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                        : DropdownButtonFormField<String>(
+                            value: _processItem,
+                            decoration: InputDecoration(
+                              labelText: "Process Type",
+                              filled: true,
+                              fillColor: SparshTheme.lightGreyBackground,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            items: _processdropdownItems
+                                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+                                .toList(),
+                            onChanged: _processdropdownItems.length > 1 ? (val) => setState(() => _processItem = val) : null,
+                            validator: (val) => (val == null || val == 'Select') ? 'Please select a process' : null,
+                          ),
+                    ],
                   ),
                 ),
               ),
@@ -221,12 +336,13 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
                       TextFormField(
                         controller: _submissionDateController,
                         readOnly: true,
+                        enabled: false,
                         decoration: InputDecoration(
                           labelText: 'Submission Date',
                           filled: true,
-                          fillColor: Colors.grey[100],
+                          fillColor: SparshTheme.lightGreyBackground,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                          suffixIcon: IconButton(icon: const Icon(Icons.calendar_today), onPressed: _pickSubmissionDate),
+                          suffixIcon: Icon(Icons.lock, color: Colors.grey),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
                         validator: (val) => (val == null || val.isEmpty) ? 'Please select submission date' : null,
@@ -235,12 +351,13 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
                       TextFormField(
                         controller: _reportDateController,
                         readOnly: true,
+                        onTap: _pickReportDate,
                         decoration: InputDecoration(
                           labelText: 'Report Date',
                           filled: true,
-                          fillColor: Colors.grey[100],
+                          fillColor: SparshTheme.lightGreyBackground,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                          suffixIcon: IconButton(icon: const Icon(Icons.calendar_today), onPressed: _pickReportDate),
+                          suffixIcon: Icon(Icons.calendar_today),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
                         validator: (val) => (val == null || val.isEmpty) ? 'Please select report date' : null,
@@ -292,7 +409,7 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
                 margin: const EdgeInsets.symmetric(vertical: 16),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: SparshTheme.cardBackground,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 2))],
                   border: Border.all(color: Colors.grey.shade200),
@@ -323,7 +440,7 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
                         margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
+                          color: SparshTheme.lightGreyBackground,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: paths.isNotEmpty ? Colors.green.shade200 : Colors.grey.shade200, width: 1.5),
                         ),
@@ -447,7 +564,7 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
               ),
 
               ElevatedButton(
-                onPressed: _onSubmit,
+                onPressed: () => _onSubmit(exitAfter: false),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

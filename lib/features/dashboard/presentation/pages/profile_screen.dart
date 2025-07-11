@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 import 'package:learning2/features/dashboard/presentation/pages/splash_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,7 +9,7 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: SparshTheme.cardBackground,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -60,11 +61,7 @@ class ProfilePage extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF1976D2), Color(0xFF2196F3)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: SparshTheme.primaryGradient,
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(30),
           bottomRight: Radius.circular(30),
@@ -113,7 +110,7 @@ class ProfilePage extends StatelessWidget {
                     ),
                     child: const Icon(
                       Icons.camera_alt,
-                      color: Color(0xFF1976D2),
+                      color: SparshTheme.primaryBlue,
                       size: 18,
                     ),
                   ),

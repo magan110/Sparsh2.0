@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -11,7 +12,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
-    const bgColor = Color(0xFFF5F6FA);
+    const bgColor = SparshTheme.scaffoldBackground;
     return SafeArea(
       child: Scaffold(
         backgroundColor: bgColor,
@@ -42,19 +43,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF5F96F3), Color(0xFF1976D2)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          gradient: SparshTheme.primaryGradient,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.15),
-              blurRadius: 20,
-              offset: const Offset(0, 7),
-            ),
-          ],
+                      boxShadow: [
+              BoxShadow(
+                color: SparshTheme.primaryBlue.withOpacity(0.15),
+                blurRadius: 20,
+                offset: const Offset(0, 7),
+              ),
+            ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -86,11 +83,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Container(
                   decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF64B5F6), Color(0xFF1976D2)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    gradient: SparshTheme.primaryGradient,
                     shape: BoxShape.circle,
                   ),
                   child: const CircleAvatar(

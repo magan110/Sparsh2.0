@@ -1,10 +1,10 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
-
-import 'dsr_entry.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class AnyOtherActivity extends StatefulWidget {
   const AnyOtherActivity({super.key});
@@ -16,7 +16,9 @@ class AnyOtherActivity extends StatefulWidget {
 class _AnyOtherActivityState extends State<AnyOtherActivity> {
   // 1) CONTROLLERS for dropdowns and dates
   String? _processItem = 'Select';
-  final List<String> _processdropdownItems = ['Select', 'Add', 'Update'];
+  List<String> _processdropdownItems = ['Select'];
+  bool _isLoadingProcessTypes = true;
+  String? _processTypeError;
 
   final TextEditingController _dateController       = TextEditingController();
   final TextEditingController _reportDateController = TextEditingController();
@@ -24,17 +26,59 @@ class _AnyOtherActivityState extends State<AnyOtherActivity> {
   DateTime? _selectedReportDate;
 
   // 2) CONTROLLERS for activity text fields
-  final TextEditingController _activity1Controller        = TextEditingController();
-  final TextEditingController _activity2Controller        = TextEditingController();
-  final TextEditingController _activity3Controller        = TextEditingController();
-  final TextEditingController _anyOtherPointsController   = TextEditingController();
+  final TextEditingController _activity1Controller      = TextEditingController();
+  final TextEditingController _activity2Controller      = TextEditingController();
+  final TextEditingController _activity3Controller      = TextEditingController();
+  final TextEditingController _anyOtherPointsController = TextEditingController();
 
   // 3) IMAGE UPLOAD state (up to 3)
-  final List<int> _uploadRows       = [0];
-  final ImagePicker _picker         = ImagePicker();
-  final List<XFile?> _selectedImages= [null];
+  final List<int> _uploadRows        = [0];
+  final ImagePicker _picker          = ImagePicker();
+  final List<XFile?> _selectedImages = [null];
 
   final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProcessTypes();
+    _setSubmissionDateToToday();
+  }
+
+  Future<void> _fetchProcessTypes() async {
+    setState(() { _isLoadingProcessTypes = true; _processTypeError = null; });
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getProcessTypes');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final processTypesList = (data['ProcessTypes'] ?? data['processTypes']) as List;
+        final processTypes = processTypesList.map((type) {
+          if (type is Map) {
+            return type['Description']?.toString() ?? type['description']?.toString() ?? type['Code']?.toString() ?? type['code']?.toString() ?? '';
+          } else {
+            return type.toString();
+          }
+        }).where((type) => type.isNotEmpty).toList();
+        setState(() {
+          _processdropdownItems = ['Select', ...processTypes];
+          _isLoadingProcessTypes = false;
+        });
+      } else {
+        setState(() {
+          _processdropdownItems = ['Select'];
+          _isLoadingProcessTypes = false;
+          _processTypeError = 'Failed to load process types.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _processdropdownItems = ['Select'];
+        _isLoadingProcessTypes = false;
+        _processTypeError = 'Failed to load process types.';
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -48,28 +92,19 @@ class _AnyOtherActivityState extends State<AnyOtherActivity> {
   }
 
   // DATE PICKERS
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final pick = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? now,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(now.year + 5),
-    );
-    if (pick != null) {
-      setState(() {
-        _selectedDate = pick;
-        _dateController.text = DateFormat('dd-MM-yy').format(pick);
-      });
-    }
+  void _setSubmissionDateToToday() {
+    final today = DateTime.now();
+    _selectedDate = today;
+    _dateController.text = DateFormat('dd-MM-yy').format(today);
   }
 
   Future<void> _pickReportDate() async {
     final now = DateTime.now();
+    final threeDaysAgo = now.subtract(const Duration(days: 3));
     final pick = await showDatePicker(
       context: context,
       initialDate: _selectedReportDate ?? now,
-      firstDate: DateTime(2000),
+      firstDate: threeDaysAgo,
       lastDate: DateTime(now.year + 5),
     );
     if (pick != null) {
@@ -120,99 +155,158 @@ class _AnyOtherActivityState extends State<AnyOtherActivity> {
     }
   }
 
-  void _onSubmit(bool exitAfter) {
+  void _onSubmit({required bool exitAfter}) async {
     if (!_formKey.currentState!.validate()) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(exitAfter
-            ? 'Form validated. Exiting…'
-            : 'Form validated. Ready for new entry.'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    final dsrData = {
+      'ActivityType': 'Any Other Activity',
+      'SubmissionDate': _selectedDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'ReportDate': _selectedReportDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'CreateId': 'SYSTEM',
+      'AreaCode': _processItem ?? '',
+      'Purchaser': _activity1Controller.text,
+      'PurchaserCode': '',
+      'dsrRem01': _activity1Controller.text,
+      'dsrRem02': _activity2Controller.text,
+      'dsrRem03': _activity3Controller.text,
+      'dsrRem04': _anyOtherPointsController.text,
+      'dsrRem05': '',
+      'dsrRem06': '',
+      'dsrRem07': '',
+      'dsrRem08': '',
+    };
 
-    if (exitAfter) {
-      Navigator.of(context).pop();
-    } else {
-      _formKey.currentState!.reset();
-      setState(() {
-        _processItem = 'Select';
-        _dateController.clear();
-        _reportDateController.clear();
-        _selectedDate = null;
-        _selectedReportDate = null;
-        _activity1Controller.clear();
-        _activity2Controller.clear();
-        _activity3Controller.clear();
-        _anyOtherPointsController.clear();
-        _uploadRows
-          ..clear()
-          ..add(0);
-        _selectedImages
-          ..clear()
-          ..add(null);
-      });
+    try {
+      await submitDsrEntry(dsrData);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(exitAfter
+              ? 'Submitted successfully. Exiting...'
+              : 'Submitted successfully. Ready for new entry.'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      if (exitAfter) {
+        Navigator.of(context).pop();
+      } else {
+        _formKey.currentState!.reset();
+        setState(() {
+          _processItem = 'Select';
+          _dateController.clear();
+          _reportDateController.clear();
+          _selectedDate = null;
+          _selectedReportDate = null;
+          _activity1Controller.clear();
+          _activity2Controller.clear();
+          _activity3Controller.clear();
+          _anyOtherPointsController.clear();
+          _uploadRows
+            ..clear()
+            ..add(0);
+          _selectedImages
+            ..clear()
+            ..add(null);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Submission failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
-  Widget _buildLabel(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(text,
-        style: const TextStyle(
-            fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87)),
-  );
+  Future<void> submitDsrEntry(Map<String, dynamic> dsrData) async {
+    final url = Uri.parse('http://192.168.36.25/api/DsrTry');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(dsrData),
+    );
+    print('Status: ${response.statusCode}');
+    print('Body: ${response.body}');
+    if (response.statusCode == 201) {
+      print('✅ Data inserted successfully!');
+    } else {
+      print('❌ Data NOT inserted! Error: ${response.body}');
+    }
+  }
+
+  Widget _buildLabel(BuildContext context, String text) => Padding(
+        padding: const EdgeInsets.only(bottom: SparshSpacing.sm),
+        child: Text(
+          text,
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+      );
 
   Widget _buildDropdown({
     required String? value,
     required List<String> items,
     required ValueChanged<String?> onChanged,
     String? Function(String?)? validator,
+    bool enabled = true,
   }) =>
       DropdownButtonFormField<String>(
         value: value,
         decoration: InputDecoration(
           filled: true,
-          fillColor: Colors.grey[100],
-          border:
-          OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          isCollapsed: true,
+          fillColor: SparshTheme.lightGreyBackground,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(SparshBorderRadius.sm),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: SparshSpacing.md,
+            vertical: SparshSpacing.sm,
+          ),
         ),
         items: items
             .map((it) => DropdownMenuItem(value: it, child: Text(it)))
             .toList(),
-        onChanged: onChanged,
+        onChanged: enabled ? onChanged : null,
         validator: validator,
       );
 
   Widget _buildDateField(
-      TextEditingController ctrl,
-      VoidCallback onTap,
-      String hint, {
-        String? Function(String?)? validator,
-      }) =>
+    TextEditingController ctrl,
+    VoidCallback onTap,
+    String hint, {
+    String? Function(String?)? validator,
+  }) =>
       TextFormField(
         controller: ctrl,
         readOnly: true,
         decoration: InputDecoration(
           hintText: hint,
           filled: true,
-          fillColor: Colors.grey[100],
+          fillColor: SparshTheme.lightGreyBackground,
           border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            borderRadius: BorderRadius.circular(SparshBorderRadius.sm),
+            borderSide: BorderSide.none,
+          ),
           suffixIcon: IconButton(
-            icon: const Icon(Icons.calendar_today),
+            icon: const Icon(Icons.calendar_today, size: SparshIconSize.lg),
             onPressed: onTap,
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: SparshSpacing.md,
+            vertical: SparshSpacing.sm,
+          ),
         ),
         onTap: onTap,
         validator: validator,
       );
 
   Widget _buildMultilineField(
-      String hint, TextEditingController ctrl, int minLines) =>
+    String hint,
+    TextEditingController ctrl,
+    int minLines,
+  ) =>
       TextFormField(
         controller: ctrl,
         minLines: minLines,
@@ -220,9 +314,14 @@ class _AnyOtherActivityState extends State<AnyOtherActivity> {
         decoration: InputDecoration(
           hintText: hint,
           filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          fillColor: SparshTheme.cardBackground,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(SparshBorderRadius.sm),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: SparshSpacing.md,
+            vertical: SparshSpacing.sm,
+          ),
         ),
         validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
       );
@@ -230,13 +329,13 @@ class _AnyOtherActivityState extends State<AnyOtherActivity> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: SparshTheme.lightGreyBackground,
       appBar: AppBar(
         title: const Text('Any Other Activity'),
-        backgroundColor: const Color(0xFF2196F3),
+        backgroundColor: SparshTheme.primaryBlueAccent,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(SparshSpacing.md),
         child: Form(
           key: _formKey,
           child: Column(
@@ -245,118 +344,133 @@ class _AnyOtherActivityState extends State<AnyOtherActivity> {
               // ── Activity Information ───────────────────────────
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  color: SparshTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                  boxShadow: SparshShadows.card,
                 ),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(SparshSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildLabel('Activity Information'),
-                    const SizedBox(height: 12),
-                    _buildDropdown(
-                      value: _processItem,
-                      items: _processdropdownItems,
-                      onChanged: (v) => setState(() => _processItem = v),
-                      validator: (v) => (v == null || v == 'Select') ? 'Required' : null,
+                    _buildLabel(context, 'Activity Information'),
+                    const SizedBox(height: SparshSpacing.sm),
+                    _buildLabel(context, 'Process Type'),
+                    if (_processTypeError != null)
+                      Text(_processTypeError!, style: TextStyle(color: Colors.red)),
+                    _isLoadingProcessTypes
+                      ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                      : _buildDropdown(
+                          value: _processItem,
+                          items: _processdropdownItems,
+                          onChanged: (v) => setState(() => _processItem = v),
+                          validator: (v) => (v == null || v == 'Select') ? 'Required' : null,
+                          enabled: _processdropdownItems.length > 1,
+                        ),
+                    const SizedBox(height: SparshSpacing.sm),
+                    _buildLabel(context, 'Submission Date'),
+                    TextFormField(
+                      controller: _dateController,
+                      readOnly: true,
+                      enabled: false,
+                      decoration: InputDecoration(
+                        hintText: 'Submission Date',
+                        filled: true,
+                        fillColor: SparshTheme.lightGreyBackground,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(SparshBorderRadius.sm),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: SparshSpacing.md,
+                          vertical: SparshSpacing.sm,
+                        ),
+                        suffixIcon: Icon(Icons.lock, color: Colors.grey),
+                      ),
+                      validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
                     ),
-                    const SizedBox(height: 12),
-                    _buildLabel('Submission Date'),
-                    _buildDateField(_dateController, _pickDate, 'Select Date',
-                        validator: (v) => (v == null || v.isEmpty) ? 'Required' : null),
-                    const SizedBox(height: 12),
-                    _buildLabel('Report Date'),
-                    _buildDateField(_reportDateController, _pickReportDate, 'Select Date',
-                        validator: (v) => (v == null || v.isEmpty) ? 'Required' : null),
+                    const SizedBox(height: SparshSpacing.sm),
+                    _buildLabel(context, 'Report Date'),
+                    _buildDateField(
+                      _reportDateController,
+                      _pickReportDate,
+                      'Select Date',
+                      validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                    ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: SparshSpacing.md),
 
               // ── Activity Details ───────────────────────────────
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  color: SparshTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                  boxShadow: SparshShadows.card,
                 ),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(SparshSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildLabel('Activity Details'),
-                    const SizedBox(height: 12),
+                    _buildLabel(context, 'Activity Details'),
+                    const SizedBox(height: SparshSpacing.sm),
                     _buildMultilineField('Activity Details 1', _activity1Controller, 3),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: SparshSpacing.sm),
                     _buildMultilineField('Activity Details 2', _activity2Controller, 3),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: SparshSpacing.sm),
                     _buildMultilineField('Activity Details 3', _activity3Controller, 3),
-                    const SizedBox(height: 12),
-                    _buildLabel('Any Other Points'),
+                    const SizedBox(height: SparshSpacing.sm),
+                    _buildLabel(context, 'Any Other Points'),
                     _buildMultilineField('Any Other Points', _anyOtherPointsController, 3),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: SparshSpacing.md),
 
               // ── Supporting Documents ─────────────────────────────
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  color: SparshTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                  boxShadow: SparshShadows.card,
                 ),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(SparshSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.photo_library_rounded, color: Color(0xFF2196F3), size: 24),
-                        SizedBox(width: 8),
+                        Icon(Icons.photo_library_rounded,
+                            color: SparshTheme.primaryBlueAccent,
+                            size: SparshIconSize.lg),
+                        const SizedBox(width: SparshSpacing.sm),
                         Expanded(
                           child: Text(
                             'Supporting Documents',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2196F3)),
+                            style: Theme.of(context).textTheme.headlineSmall,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: SparshSpacing.sm),
                     // each image row
                     ..._uploadRows.map((idx) {
                       final file = _selectedImages[idx];
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.only(bottom: SparshSpacing.md),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Document ${idx + 1}',
-                                style: const TextStyle(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 8),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium!
+                                    .copyWith(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: SparshSpacing.xs),
                             Row(
                               children: [
                                 ElevatedButton.icon(
@@ -365,7 +479,7 @@ class _AnyOtherActivityState extends State<AnyOtherActivity> {
                                       file != null ? Icons.refresh : Icons.upload_file),
                                   label: Text(file != null ? 'Replace' : 'Upload'),
                                 ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: SparshSpacing.sm),
                                 if (file != null)
                                   ElevatedButton.icon(
                                     onPressed: () => _showImageDialog(file),
@@ -377,7 +491,7 @@ class _AnyOtherActivityState extends State<AnyOtherActivity> {
                                   IconButton(
                                     onPressed: _removeRow,
                                     icon: const Icon(Icons.remove_circle),
-                                    color: Colors.red,
+                                    color: SparshTheme.errorRed,
                                   ),
                               ],
                             ),
@@ -397,17 +511,18 @@ class _AnyOtherActivityState extends State<AnyOtherActivity> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: SparshSpacing.lg),
 
               // ── Submit Buttons ────────────────────────────────────
               ElevatedButton(
-                onPressed: () => _onSubmit(false),
+                onPressed: () => _onSubmit(exitAfter: false),
                 child: const Text('Submit & New'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: SparshSpacing.sm),
               ElevatedButton(
-                onPressed: () => _onSubmit(true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                onPressed: () => _onSubmit(exitAfter: true),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: SparshTheme.successGreen),
                 child: const Text('Submit & Exit'),
               ),
             ],

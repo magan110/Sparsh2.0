@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'Worker_Home_Screen.dart';
-import 'package:learning2/core/constants/fonts.dart';
 
 class MovieBookingDetails extends StatefulWidget {
   const MovieBookingDetails({super.key});

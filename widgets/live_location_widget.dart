@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import '../services/location_service.dart';
+import '../lib/data/services/location_service.dart';
 import 'package:learning2/core/constants/fonts.dart';
 
 class LiveLocationWidget extends StatefulWidget {

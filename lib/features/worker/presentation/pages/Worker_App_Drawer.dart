@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:learning2/features/authentication/presentation/pages/login_screen.dart';
 import 'package:learning2/core/constants/fonts.dart';
 
+import '../../../../core/theme/app_theme.dart';
+
 class WorkerAppDrawer extends StatefulWidget {
   const WorkerAppDrawer({super.key});
 
@@ -40,27 +42,15 @@ class _WorkerAppDrawerState extends State<WorkerAppDrawer> {
   Widget build(BuildContext context) {
     return Drawer(
       child: Container(
-        color: Colors.white,
+        color: SparshTheme.cardBackground,
         child: Column(
           children: [
             // Drawer header with Birla White
             DrawerHeader(
-              decoration: const BoxDecoration(
-                color: Colors.blueAccent, // A slightly more vibrant blue
-                gradient: LinearGradient(
-                  // Add a subtle gradient
-                  colors: [Colors.blueAccent, Colors.lightBlueAccent],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  // Add a shadow for depth
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 10,
-                    offset: Offset(0, 2),
-                  ),
-                ],
+              decoration: BoxDecoration(
+                color: SparshTheme.primaryBlueAccent,
+                gradient: SparshTheme.drawerHeaderGradient,
+                boxShadow: SparshShadows.md,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -83,10 +73,10 @@ class _WorkerAppDrawerState extends State<WorkerAppDrawer> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 12), // Increased spacing
+                  const SizedBox(height: SparshSpacing.sm),
                   const Text(
                     'Birla White',
-                    style: Fonts.heading2,
+                    style: SparshTypography.heading2,
                   ),
                 ],
               ),
@@ -102,11 +92,11 @@ class _WorkerAppDrawerState extends State<WorkerAppDrawer> {
                   final isSelected = _selectedCategory == category;
 
                   return Container(
-                    color: isSelected ? Colors.lightBlue : Colors.white,
+                    color: isSelected ? SparshTheme.lightBlueBackground : SparshTheme.cardBackground,
                     child: ListTile(
                       title: Text(
                         category,
-                        style: isSelected ? Fonts.bodyBold : Fonts.body,
+                        style: isSelected ? SparshTypography.bodyBold : SparshTypography.body,
                       ),
                       onTap: () {
                         setState(() {
@@ -122,10 +112,10 @@ class _WorkerAppDrawerState extends State<WorkerAppDrawer> {
             // Logout option
             const Divider(height: 1),
             ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
+              leading: const Icon(Icons.logout, color: SparshTheme.errorRed),
               title: Text(
                 'Logout',
-                style: Fonts.bodyBold.copyWith(color: Colors.red),
+                style: SparshTypography.bodyBold.copyWith(color: SparshTheme.errorRed),
               ),
               onTap: _logout,
             ),

@@ -2,7 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
+import '../../../../core/theme/app_theme.dart';
 import 'dsr_entry.dart';
 
 class OfficeWork extends StatefulWidget {
@@ -14,22 +17,151 @@ class OfficeWork extends StatefulWidget {
 class _OfficeWorkState extends State<OfficeWork> {
   final _formKey = GlobalKey<FormState>();
 
-  String? _processItem = 'Select';
-  final List<String> _processdropdownItems = ['Select', 'Add', 'Update'];
-
   final TextEditingController _submissionDateController = TextEditingController();
   final TextEditingController _reportDateController     = TextEditingController();
-  final TextEditingController _workRelatedToController   = TextEditingController();
-  final TextEditingController _hoursSpentController      = TextEditingController();
+
+  // Dynamic field definitions
+  List<Map<String, dynamic>> _fields = [];
+  bool _isLoading = true;
 
   List<File?> _selectedImages = [null];
+
+  @override
+  void initState() {
+    super.initState();
+    _setSubmissionDateToToday();
+    _initializeFields();
+  }
+
+  void _setSubmissionDateToToday() {
+    final today = DateTime.now();
+    _submissionDateController.text = DateFormat('yyyy-MM-dd').format(today);
+  }
+
+  Future<void> _initializeFields() async {
+    try {
+      // Fetch process types from API
+      final processTypes = await _fetchProcessTypes();
+      
+      setState(() {
+        _fields = [
+          {
+            'label': 'Process Type',
+            'type': 'dropdown',
+            'items': processTypes,
+            'value': processTypes.isNotEmpty ? processTypes[0] : 'Select',
+            'key': 'ProcessType',
+          },
+          {
+            'label': 'Work Related To',
+            'controller': TextEditingController(),
+            'type': 'text',
+            'maxLines': 3,
+            'key': 'dsrRem01',
+          },
+          {
+            'label': 'No. of Hours Spent',
+            'controller': TextEditingController(),
+            'type': 'number',
+            'key': 'dsrRem02',
+          },
+        ];
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error fetching process types: $e');
+      // Fallback to default process types
+      setState(() {
+        _fields = [
+          {
+            'label': 'Process Type',
+            'type': 'dropdown',
+            'items': ['Select', 'Add', 'Update'],
+            'value': 'Select',
+            'key': 'ProcessType',
+          },
+          {
+            'label': 'Work Related To',
+            'controller': TextEditingController(),
+            'type': 'text',
+            'maxLines': 3,
+            'key': 'dsrRem01',
+          },
+          {
+            'label': 'No. of Hours Spent',
+            'controller': TextEditingController(),
+            'type': 'number',
+            'key': 'dsrRem02',
+          },
+        ];
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<List<String>> _fetchProcessTypes() async {
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getProcessTypes');
+      print('🔍 Fetching process types from: $url');
+      
+      final response = await http.get(url);
+      print('📡 Process types response status: ${response.statusCode}');
+      print('📄 Process types response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('📊 Parsed process types data: $data');
+        
+        List<String> processTypes = [];
+        
+        // Try different response formats
+        if (data is Map && data.containsKey('processTypes')) {
+          // Format: {"processTypes": [{"description": "..."}, ...]}
+          final processTypesList = data['processTypes'] as List;
+          processTypes = processTypesList.map((type) => type['description'] as String).toList();
+          print('✅ Found processTypes property with ${processTypes.length} items');
+        } else if (data is Map && data.containsKey('ProcessTypes')) {
+          // Format: {"ProcessTypes": [{"Description": "..."}, ...]}
+          final processTypesList = data['ProcessTypes'] as List;
+          processTypes = processTypesList.map((type) => type['Description'] as String).toList();
+          print('✅ Found ProcessTypes property with ${processTypes.length} items');
+        } else if (data is List) {
+          // Format: [{"description": "..."}, ...]
+          processTypes = data.map((type) => type['description'] as String).toList();
+          print('✅ Found direct List format with ${processTypes.length} items');
+        } else if (data is Map && data.containsKey('data')) {
+          // Format: {"data": [{"description": "..."}, ...]}
+          final processTypesList = data['data'] as List;
+          processTypes = processTypesList.map((type) => type['description'] as String).toList();
+          print('✅ Found data property with ${processTypes.length} items');
+        } else {
+          print('❌ Unexpected response format: ${data.runtimeType}');
+          print('📋 Available keys: ${data is Map ? data.keys.toList() : 'Not a Map'}');
+          throw Exception('Unexpected response format: ${data.runtimeType}');
+        }
+        
+        print('✅ Process types loaded: $processTypes');
+        return processTypes;
+      } else {
+        print('❌ Failed to fetch process types: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to fetch process types: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('💥 Error fetching process types: $e');
+      // Return default process types as fallback
+      return ['Select', 'Add', 'Update'];
+    }
+  }
 
   @override
   void dispose() {
     _submissionDateController.dispose();
     _reportDateController.dispose();
-    _workRelatedToController.dispose();
-    _hoursSpentController.dispose();
+    for (final field in _fields) {
+      if (field['type'] == 'text' || field['type'] == 'number') {
+        field['controller'].dispose();
+      }
+    }
     super.dispose();
   }
 
@@ -50,10 +182,11 @@ class _OfficeWorkState extends State<OfficeWork> {
 
   Future<void> _pickReportDate() async {
     final now = DateTime.now();
+    final threeDaysAgo = now.subtract(const Duration(days: 3));
     final picked = await showDatePicker(
       context: context,
       initialDate: now,
-      firstDate: DateTime(1900),
+      firstDate: threeDaysAgo,
       lastDate: DateTime(now.year + 5),
     );
     if (picked != null) {
@@ -81,44 +214,109 @@ class _OfficeWorkState extends State<OfficeWork> {
     );
   }
 
-  void _onSubmit({required bool exitAfter}) {
+  void _onSubmit({required bool exitAfter}) async {
     if (!_formKey.currentState!.validate()) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          exitAfter
-              ? 'Form validated. Exiting...'
-              : 'Form validated. Ready for new entry.',
-        ),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    final dsrData = <String, dynamic>{
+      'ActivityType': 'Office Work',
+      'SubmissionDate': _submissionDateController.text,
+      'ReportDate': _reportDateController.text,
+      'CreateId': 'SYSTEM',
+      // Map dynamic fields to their keys
+      ...{
+        for (final field in _fields)
+          if (field['type'] == 'dropdown')
+            field['key'] as String: field['value']
+          else
+            field['key'] as String: field['controller'].text
+      },
+      'Images': _selectedImages.map((file) => file?.path).toList(),
+    };
 
-    if (exitAfter) {
-      Navigator.of(context).pop();
-    } else {
-      _clearForm();
+    try {
+      await submitDsrEntry(dsrData);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(exitAfter
+              ? 'Submitted successfully. Exiting...'
+              : 'Submitted successfully. Ready for new entry.'),
+          backgroundColor: SparshTheme.successGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      if (exitAfter) {
+        Navigator.of(context).pop();
+      } else {
+        _clearForm();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Submission failed:  e.toString()}'),
+          backgroundColor: SparshTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
   void _clearForm() {
     setState(() {
-      _processItem = 'Select';
       _submissionDateController.clear();
       _reportDateController.clear();
-      _workRelatedToController.clear();
-      _hoursSpentController.clear();
+      for (final field in _fields) {
+        if (field['type'] == 'dropdown') {
+          field['value'] = field['items'][0];
+        } else if (field['type'] == 'text' || field['type'] == 'number') {
+          field['controller'].clear();
+        }
+      }
       _selectedImages = [null];
     });
     _formKey.currentState!.reset();
   }
 
+  Future<void> submitDsrEntry(Map<String, dynamic> dsrData) async {
+    final url = Uri.parse('http://192.168.36.25/api/DsrTry');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(dsrData),
+    );
+    print('Status: ${response.statusCode}');
+    print('Body: ${response.body}');
+    if (response.statusCode == 201) {
+      print('✅ Data inserted successfully!');
+    } else {
+      print('❌ Data NOT inserted! Error: ${response.body}');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: SparshTheme.scaffoldBackground,
+        appBar: AppBar(
+          leading: IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DsrEntry()),
+            ),
+            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+          ),
+          title: const Text('Office Work', style: TextStyle(color: Colors.white)),
+          backgroundColor: SparshTheme.primaryBlue,
+          elevation: 0,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: SparshTheme.scaffoldBackground,
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.push(
@@ -128,49 +326,82 @@ class _OfficeWorkState extends State<OfficeWork> {
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
         ),
         title: const Text('Office Work', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF2196F3),
+        backgroundColor: SparshTheme.primaryBlue,
         elevation: 0,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(SparshSpacing.md),
         child: Form(
           key: _formKey,
           child: ListView(
             children: [
-              _buildLabel('Process type'),
-              _buildDropdownField(
-                value: _processItem,
-                items: _processdropdownItems,
-                onChanged: (val) => setState(() => _processItem = val),
-              ),
-              const SizedBox(height: 10),
+              // Render dynamic fields
+              for (final field in _fields) ...[
+                _buildLabel(field['label']),
+                if (field['type'] == 'dropdown')
+                  _buildDropdownField(
+                    value: field['value'],
+                    items: List<String>.from(field['items']),
+                    onChanged: (val) => setState(() => field['value'] = val),
+                  )
+                else
+                  _buildTextField(
+                    field['label'],
+                    controller: field['controller'],
+                    keyboardType: field['type'] == 'number' ? TextInputType.number : TextInputType.text,
+                    maxLines: field['maxLines'] ?? 1,
+                  ),
+                const SizedBox(height: SparshSpacing.sm),
+              ],
               _buildLabel('Submission Date'),
-              _buildDateField(_submissionDateController, _pickSubmissionDate, 'Select Submission Date'),
-              const SizedBox(height: 10),
-              _buildLabel('Report Date'),
-              _buildDateField(_reportDateController, _pickReportDate, 'Select Report Date'),
-              const SizedBox(height: 10),
-              _buildLabel('Work Related To'),
-              _buildTextField('Enter Work Related To', controller: _workRelatedToController, maxLines: 3),
-              const SizedBox(height: 10),
-              _buildLabel('No. of Hours Spent'),
-              _buildTextField(
-                'Enter Number of Hours',
-                controller: _hoursSpentController,
-                keyboardType: TextInputType.number,
+              TextFormField(
+                controller: _submissionDateController,
+                readOnly: true,
+                enabled: false,
+                decoration: InputDecoration(
+                  hintText: 'Submission Date',
+                  filled: true,
+                  fillColor: SparshTheme.cardBackground,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                    borderSide: BorderSide.none,
+                  ),
+                  suffixIcon: Icon(Icons.lock, color: Colors.grey),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.sm, vertical: SparshSpacing.sm),
+                ),
+                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: SparshSpacing.sm),
+              _buildLabel('Report Date'),
+              TextFormField(
+                controller: _reportDateController,
+                readOnly: true,
+                onTap: _pickReportDate,
+                decoration: InputDecoration(
+                  hintText: 'Select Report Date',
+                  filled: true,
+                  fillColor: SparshTheme.cardBackground,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                    borderSide: BorderSide.none,
+                  ),
+                  suffixIcon: const Icon(Icons.calendar_today),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.sm, vertical: SparshSpacing.sm),
+                ),
+                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: SparshSpacing.sm),
               _buildLabel('Upload Images'),
               ...List.generate(_selectedImages.length, (i) {
                 final file = _selectedImages[i];
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: SparshSpacing.md),
+                  padding: const EdgeInsets.all(SparshSpacing.sm),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
+                    color: SparshTheme.cardBackground,
+                    borderRadius: BorderRadius.circular(SparshBorderRadius.md),
                     border: Border.all(
-                      color: file != null ? Colors.green.shade200 : Colors.grey.shade200,
+                      color: file != null ? SparshTheme.successGreen : SparshTheme.borderGrey,
                       width: 1.5,
                     ),
                   ),
@@ -179,24 +410,29 @@ class _OfficeWorkState extends State<OfficeWork> {
                     children: [
                       Row(
                         children: [
-                          Text('Document ${i + 1}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text(
+                            'Document ${i + 1}',
+                            style: SparshTypography.bodyBold,
+                          ),
                           const Spacer(),
                           if (file != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(horizontal: SparshSpacing.sm, vertical: 3),
                               decoration: BoxDecoration(
-                                color: Colors.green.shade100,
-                                borderRadius: BorderRadius.circular(16),
+                                color: SparshTheme.successGreen.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.check_circle, color: Colors.green, size: 16),
-                                  SizedBox(width: 4),
-                                  Text('Uploaded',
-                                      style: TextStyle(
-                                          color: Colors.green, fontWeight: FontWeight.w500, fontSize: 13)),
+                                  Icon(Icons.check_circle, color: SparshTheme.successGreen, size: 16),
+                                  const SizedBox(width: SparshSpacing.xs),
+                                  Text(
+                                    'Uploaded',
+                                    style: SparshTypography.labelMedium.copyWith(
+                                      color: SparshTheme.successGreen,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -213,23 +449,23 @@ class _OfficeWorkState extends State<OfficeWork> {
                             ),
                           ),
                           if (file != null) ...[
-                            const SizedBox(width: 10),
+                            const SizedBox(width: SparshSpacing.sm),
                             Expanded(
                               child: ElevatedButton.icon(
                                 onPressed: () => _showImageDialog(file),
                                 icon: const Icon(Icons.visibility, size: 18),
                                 label: const Text('View'),
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                                style: ElevatedButton.styleFrom(backgroundColor: SparshTheme.successGreen),
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: SparshSpacing.sm),
                             IconButton(
                               onPressed: () {
                                 setState(() {
                                   _selectedImages.removeAt(i);
                                 });
                               },
-                              icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                              icon: Icon(Icons.remove_circle_outline, color: SparshTheme.errorRed),
                             ),
                           ]
                         ],
@@ -250,7 +486,7 @@ class _OfficeWorkState extends State<OfficeWork> {
                     label: const Text('Add More Image'),
                   ),
                 ),
-              const SizedBox(height: 24),
+              const SizedBox(height: SparshSpacing.lg),
               Row(
                 children: [
                   Expanded(
@@ -259,7 +495,7 @@ class _OfficeWorkState extends State<OfficeWork> {
                       child: const Text('Submit & New'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: SparshSpacing.sm),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => _onSubmit(exitAfter: true),
@@ -279,7 +515,7 @@ class _OfficeWorkState extends State<OfficeWork> {
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Text(
       text,
-      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+      style: SparshTypography.bodyBold.copyWith(color: SparshTheme.textPrimary),
     ),
   );
 
@@ -295,8 +531,8 @@ class _OfficeWorkState extends State<OfficeWork> {
         maxLines: maxLines,
         decoration: InputDecoration(
           hintText: hint,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.md)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.sm, vertical: SparshSpacing.sm),
         ),
         validator: (val) => val == null || val.isEmpty ? 'Required' : null,
       );
@@ -310,9 +546,9 @@ class _OfficeWorkState extends State<OfficeWork> {
         height: 48,
         padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300, width: 1),
-          color: Colors.white,
+          borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+          border: Border.all(color: SparshTheme.borderGrey, width: 1),
+          color: SparshTheme.cardBackground,
         ),
         child: DropdownButton<String>(
           isExpanded: true,
@@ -330,8 +566,8 @@ class _OfficeWorkState extends State<OfficeWork> {
         decoration: InputDecoration(
           hintText: hint,
           suffixIcon: IconButton(icon: const Icon(Icons.calendar_today), onPressed: onTap),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.md)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.sm, vertical: SparshSpacing.sm),
         ),
         onTap: onTap,
         validator: (val) => val == null || val.isEmpty ? 'Select date' : null,

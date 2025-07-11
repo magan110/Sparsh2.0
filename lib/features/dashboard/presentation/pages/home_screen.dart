@@ -22,6 +22,7 @@ import 'scheme_document_page.dart';
 import 'universal_outlet_registration_page.dart';
 import 'mail_screen.dart';
 import 'package:learning2/core/constants/fonts.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -86,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return true; // Let the system handle "back" when already on Home.
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: SparshTheme.scaffoldBackground,
         appBar: _buildAppBar(),
         drawer: const AppDrawer(),
         body: Stack(
@@ -108,11 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
       elevation: 4,
       flexibleSpace: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.blue, Colors.blue],
-          ),
+          gradient: SparshTheme.appBarGradient,
         ),
       ),
       title: const Row(

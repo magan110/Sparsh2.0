@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:learning2/core/constants/fonts.dart';
 
+import '../../../../core/theme/app_theme.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -15,12 +17,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Movie Booking',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        textTheme: GoogleFonts.poppinsTextTheme(),
-        scaffoldBackgroundColor: const Color(0xFFF5F7FB),
-      ),
+      theme: SparshTheme.lightTheme,
       home: const MovieBooking(),
     );
   }
@@ -51,14 +48,14 @@ class _MovieBookingState extends State<MovieBooking> {
 
   Widget _buildSectionTitle(String title, IconData icon) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      padding: const EdgeInsets.symmetric(horizontal: SparshSpacing.lg),
       child: Row(
         children: [
-          Icon(icon, color: Colors.deepPurple),
-          const SizedBox(width: 10),
+          Icon(icon, color: SparshTheme.infoBlue),
+          const SizedBox(width: SparshSpacing.sm),
           Text(
             title,
-            style: Fonts.heading2,
+            style: SparshTypography.heading2,
           ),
         ],
       ),
@@ -71,33 +68,27 @@ class _MovieBookingState extends State<MovieBooking> {
     TextInputType keyboardType = TextInputType.text,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      padding: const EdgeInsets.symmetric(horizontal: SparshSpacing.lg),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(25.0),
+        borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(25.0),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                )
-              ],
+              borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
+              boxShadow: SparshShadows.md,
             ),
             child: TextField(
               controller: controller,
               keyboardType: keyboardType,
-              style: Fonts.body,
+              style: SparshTypography.body,
               decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.xl, vertical: SparshSpacing.md),
                 hintText: hintText,
-                hintStyle: TextStyle(color: Colors.grey[600]),
+                hintStyle: TextStyle(color: SparshTheme.textSecondary),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25.0),
+                  borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
                   borderSide: BorderSide.none,
                 ),
               ),
@@ -115,34 +106,27 @@ class _MovieBookingState extends State<MovieBooking> {
     required ValueChanged<String?> onChanged,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      padding: const EdgeInsets.symmetric(horizontal: SparshSpacing.lg),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: SparshSpacing.xl),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(25.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.shade300,
-              blurRadius: 12,
-              spreadRadius: 1,
-              offset: const Offset(4, 4),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
+          boxShadow: SparshShadows.card,
         ),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             value: selectedValue,
             hint: Text(
               hintText,
-              style: Fonts.body.copyWith(fontSize: 18),
+              style: SparshTypography.body.copyWith(fontSize: 18),
             ),
             icon: const Icon(Icons.keyboard_arrow_down),
             isExpanded: true,
             items: items.map((item) {
               return DropdownMenuItem(
                 value: item,
-                child: Text(item, style: Fonts.body),
+                child: Text(item, style: SparshTypography.body),
               );
             }).toList(),
             onChanged: onChanged,
@@ -155,11 +139,11 @@ class _MovieBookingState extends State<MovieBooking> {
   Widget _buildSeat(int seatNumber) {
     Color seatColor;
     if (_bookedSeats.contains(seatNumber)) {
-      seatColor = Colors.red;
+      seatColor = SparshTheme.seatBooked;
     } else if (_selectedSeats.contains(seatNumber)) {
-      seatColor = Colors.amber;
+      seatColor = SparshTheme.seatSelected;
     } else {
-      seatColor = Colors.green;
+      seatColor = SparshTheme.seatAvailable;
     }
 
     return GestureDetector(
@@ -183,7 +167,7 @@ class _MovieBookingState extends State<MovieBooking> {
         child: Center(
           child: Text(
             seatNumber.toString(),
-            style: Fonts.bodyBold.copyWith(fontSize: 10),
+            style: SparshTypography.bodyBold.copyWith(fontSize: 10),
           ),
         ),
       ),
@@ -200,7 +184,7 @@ class _MovieBookingState extends State<MovieBooking> {
           _buildSeat(startSeat),
           const SizedBox(width: 4),
           _buildSeat(startSeat + 1),
-          const SizedBox(width: 12),
+          const SizedBox(width: SparshSpacing.sm),
           // Middle 4 seats
           _buildSeat(startSeat + 2),
           const SizedBox(width: 4),
@@ -209,7 +193,7 @@ class _MovieBookingState extends State<MovieBooking> {
           _buildSeat(startSeat + 4),
           const SizedBox(width: 4),
           _buildSeat(startSeat + 5),
-          const SizedBox(width: 12),
+          const SizedBox(width: SparshSpacing.sm),
           // Last 2 seats
           _buildSeat(startSeat + 6),
           const SizedBox(width: 4),
@@ -233,10 +217,10 @@ class _MovieBookingState extends State<MovieBooking> {
       appBar: AppBar(
         title: Text(
           'Movie Booking',
-          style: Fonts.heading2.copyWith(fontWeight: FontWeight.bold),
+          style: SparshTypography.heading2.copyWith(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        backgroundColor: Colors.blue,
+        backgroundColor: SparshTheme.primaryBlue,
         foregroundColor: Colors.white,
         elevation: 4,
         leading: IconButton(
@@ -247,56 +231,56 @@ class _MovieBookingState extends State<MovieBooking> {
         ),
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF5F7FB), Color(0xFFE0ECFF)],
+            colors: [SparshTheme.scaffoldBackground, SparshTheme.lightBlueBackground],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(vertical: 20),
+            padding: const EdgeInsets.symmetric(vertical: SparshSpacing.xl),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 10),
+                const SizedBox(height: SparshSpacing.sm),
                 _buildSectionTitle("Select Show Time and Movie", Icons.schedule),
-                const SizedBox(height: 10),
+                const SizedBox(height: SparshSpacing.sm),
                 _buildStyledDropdown(
                   hintText: "Select Show Time & Movie",
                   items: ['10:00 AM - Movie A', '02:00 PM - Movie B', '06:00 PM - Movie C'],
                   selectedValue: _selectedShowTime,
                   onChanged: (value) => setState(() => _selectedShowTime = value),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: SparshSpacing.xl),
                 _buildSectionTitle("Personal / Official Guest", Icons.person_pin),
-                const SizedBox(height: 10),
+                const SizedBox(height: SparshSpacing.sm),
                 _buildStyledDropdown(
                   hintText: "Personal / Official",
                   items: ['Personal', 'Official'],
                   selectedValue: _selectedPersonalOfficial,
                   onChanged: (value) => setState(() => _selectedPersonalOfficial = value),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: SparshSpacing.xl),
                 _buildSectionTitle("Employee Code", Icons.badge),
-                const SizedBox(height: 10),
+                const SizedBox(height: SparshSpacing.sm),
                 _buildStyledTextField(
                   controller: _employeeCodeController,
                   hintText: 'Enter Employee Code',
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: SparshSpacing.xl),
                 _buildSectionTitle("Mobile No (Entry Pass SMS)", Icons.phone),
-                const SizedBox(height: 10),
+                const SizedBox(height: SparshSpacing.sm),
                 _buildStyledTextField(
                   controller: _mobileNumberController,
                   hintText: 'Enter Mobile Number',
                   keyboardType: TextInputType.phone,
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: SparshSpacing.lg),
                 _buildSectionTitle("Select Seats", Icons.event_seat),
                 _buildSeatLayout(),
-                const SizedBox(height: 30),
+                const SizedBox(height: SparshSpacing.lg),
                 Center(
                   child: ElevatedButton(
                     onPressed: () {
@@ -315,17 +299,17 @@ class _MovieBookingState extends State<MovieBooking> {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
+                      backgroundColor: SparshTheme.infoBlue,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      padding: const EdgeInsets.symmetric(horizontal: SparshSpacing.xl, vertical: SparshSpacing.md),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.xl)),
                       elevation: 10,
-                      shadowColor: Colors.deepPurple.withOpacity(0.3),
+                      shadowColor: SparshTheme.borderDarkGrey.withOpacity(0.3),
                     ),
                     child: const Text('🎟 Book Entry Pass', style: TextStyle(fontSize: 18)),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: SparshSpacing.xl),
               ],
             ),
           ),

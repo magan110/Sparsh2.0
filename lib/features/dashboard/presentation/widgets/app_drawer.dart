@@ -3,6 +3,7 @@ import 'package:learning2/features/dashboard/data/sources/day_wise_summary.dart'
 import 'package:learning2/features/dashboard/data/sources/account_statement.dart';
 import 'package:learning2/features/dashboard/data/sources/day_summary.dart';
 import 'package:learning2/core/constants/fonts.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 
 // Define a callback type for when a drawer item is tapped
 typedef DrawerItemTapCallback = void Function(String title, String? route);
@@ -51,7 +52,7 @@ class _AppDrawerState extends State<AppDrawer> {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: Colors.white,
+      backgroundColor: SparshTheme.cardBackground,
       // Use a ListView for scrollability if the content exceeds screen height
       child: ListView(
         padding: EdgeInsets.zero,
@@ -59,11 +60,7 @@ class _AppDrawerState extends State<AppDrawer> {
           // Enhanced Drawer Header
           DrawerHeader(
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF1976D2), Color(0xFF42A5F5)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: SparshTheme.drawerHeaderGradient,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black26,
@@ -86,10 +83,10 @@ class _AppDrawerState extends State<AppDrawer> {
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
                         print('Error loading drawer header image: $error');
-                        return const Icon(
+                        return Icon(
                           Icons.business,
                           size: 48,
-                          color: Color(0xFF1976D2),
+                          color: SparshTheme.primaryBlue,
                         );
                       },
                     ),

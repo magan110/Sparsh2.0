@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:learning2/features/dashboard/presentation/pages/home_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:learning2/core/constants/fonts.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 
 void main() {
   runApp(
@@ -19,10 +20,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'SPARSH Notifications',
-      theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
+      theme: SparshTheme.lightTheme,
       home: const NotificationScreen(),
     );
   }
@@ -110,7 +108,7 @@ class NotificationScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.blue,
+        backgroundColor: SparshTheme.primaryBlue,
         leading: IconButton(
           onPressed: () {
             Navigator.push(

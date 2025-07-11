@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:learning2/features/dashboard/presentation/pages/edit_kyc_screen.dart';
 
+import '../../../../core/theme/app_theme.dart';
+
 class DsrVisitScreen extends StatefulWidget {
   const DsrVisitScreen({super.key});
 
@@ -168,21 +170,20 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('DSR Visit Entry'),
         elevation: 4,
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
+        backgroundColor: SparshTheme.primaryBlue,
+        foregroundColor: Colors.white,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
         ),
       ),
-      backgroundColor: theme.colorScheme.surface.withOpacity(0.98),
+      backgroundColor: SparshTheme.scaffoldBackground,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(SparshSpacing.md),
           child: Form(
             key: _formKey,
             child: Column(
@@ -228,7 +229,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Purchaser/Retailer Type, Area Code, Purchaser Code, Name, KYC ---
                 const _SectionHeader(icon: Icons.person, label: 'Purchaser / Retailer Details'),
                 _FantasticCard(
@@ -244,7 +245,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         onChanged: (v) => setState(() => purchaserType = v),
                         validator: (v) => v == null ? 'Required' : null,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       DropdownButtonFormField<String>(
                         value: areaCode,
                         decoration: _fantasticInputDecoration('Area Code *'),
@@ -254,28 +255,28 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         onChanged: (v) => setState(() => areaCode = v),
                         validator: (v) => v == null ? 'Required' : null,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       TextFormField(
                         decoration: _fantasticInputDecoration('Purchaser Code *', icon: Icons.search),
                         onChanged: (v) => purchaserCode = v,
                         validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       Row(
                         children: [
-                          const Text('Name: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text(name ?? '', style: const TextStyle(fontWeight: FontWeight.normal)),
+                          Text('Name: ', style: SparshTypography.bodyBold),
+                          Text(name ?? '', style: SparshTypography.body),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.secondary,
-                            foregroundColor: theme.colorScheme.onSecondary,
+                            backgroundColor: SparshTheme.primaryBlueAccent,
+                            foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(SparshBorderRadius.md),
                             ),
                           ),
                           onPressed: () {
@@ -289,7 +290,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                           label: const Text('Edit KYC'),
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       DropdownButtonFormField<String>(
                         value: kycStatus,
                         decoration: _fantasticInputDecoration('KYC Status'),
@@ -301,7 +302,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Report Date, Market Name, Display Contest, Pending Issues ---
                 const _SectionHeader(icon: Icons.event_note, label: 'Report & Market Details'),
                 _FantasticCard(
@@ -327,14 +328,14 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         controller: TextEditingController(text: reportDate),
                         validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       TextFormField(
                         decoration: _fantasticInputDecoration('Market Name (Location Or Road Name) *'),
                         onChanged: (v) => marketName = v,
                         validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                       ),
-                      const SizedBox(height: 10),
-                      const Text('Participation of Display Contest *', style: TextStyle(fontWeight: FontWeight.w500)),
+                      const SizedBox(height: SparshSpacing.sm),
+                      Text('Participation of Display Contest *', style: SparshTypography.bodyBold),
                       Row(
                         children: [
                           Radio<String>(
@@ -357,8 +358,8 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                           const Text('NA'),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      const Text('Any Pending Issues (Yes/No) *', style: TextStyle(fontWeight: FontWeight.w500)),
+                      const SizedBox(height: SparshSpacing.sm),
+                      Text('Any Pending Issues (Yes/No) *', style: SparshTypography.bodyBold),
                       Row(
                         children: [
                           Radio<String>(
@@ -394,7 +395,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Enrolment Slab ---
                 const _SectionHeader(icon: Icons.bar_chart, label: 'Enrolment Slab (in MT)'),
                 _FantasticCard(
@@ -407,14 +408,14 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         onChanged: (v) => wcEnrolment = v,
                         validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       TextFormField(
                         decoration: _fantasticInputDecoration('WCP'),
                         keyboardType: TextInputType.number,
                         onChanged: (v) => wcpEnrolment = v,
                         validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       TextFormField(
                         decoration: _fantasticInputDecoration('VAP'),
                         keyboardType: TextInputType.number,
@@ -424,7 +425,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- BW Stocks Availability ---
                 const _SectionHeader(icon: Icons.inventory, label: 'BW Stocks Availability (in MT)'),
                 _FantasticCard(
@@ -437,14 +438,14 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         onChanged: (v) => wcStock = v,
                         validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       TextFormField(
                         decoration: _fantasticInputDecoration('WCP'),
                         keyboardType: TextInputType.number,
                         onChanged: (v) => wcpStock = v,
                         validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       TextFormField(
                         decoration: _fantasticInputDecoration('VAP'),
                         keyboardType: TextInputType.number,
@@ -454,16 +455,16 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Brands Selling ---
                 const _SectionHeader(icon: Icons.check_box, label: 'Brands Selling'),
                 _FantasticCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('WC (Industry Volume)', style: TextStyle(fontWeight: FontWeight.w500)),
+                      Text('WC (Industry Volume)', style: SparshTypography.bodyBold),
                       Wrap(
-                        spacing: 8,
+                        spacing: SparshSpacing.sm,
                         children: brandsWc.keys.map((brand) {
                           return Row(
                             mainAxisSize: MainAxisSize.min,
@@ -471,7 +472,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                               Checkbox(
                                 value: brandsWc[brand],
                                 onChanged: (v) => setState(() => brandsWc[brand] = v ?? false),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.sm)),
                               ),
                               Text(brand),
                             ],
@@ -482,10 +483,10 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         decoration: _fantasticInputDecoration('WC Industry Volume in (MT)'),
                         onChanged: (v) => slWcVolume = v,
                       ),
-                      const SizedBox(height: 10),
-                      const Text('WCP (Industry Volume)', style: TextStyle(fontWeight: FontWeight.w500)),
+                      const SizedBox(height: SparshSpacing.sm),
+                      Text('WCP (Industry Volume)', style: SparshTypography.bodyBold),
                       Wrap(
-                        spacing: 8,
+                        spacing: SparshSpacing.sm,
                         children: brandsWcp.keys.map((brand) {
                           return Row(
                             mainAxisSize: MainAxisSize.min,
@@ -493,7 +494,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                               Checkbox(
                                 value: brandsWcp[brand],
                                 onChanged: (v) => setState(() => brandsWcp[brand] = v ?? false),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.sm)),
                               ),
                               Text(brand),
                             ],
@@ -507,17 +508,17 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Last 3 Months Average ---
                 const _SectionHeader(icon: Icons.timeline, label: 'Last 3 Months Average'),
                 _FantasticCard(
                   child: Table(
-                    border: TableBorder.all(color: theme.dividerColor),
+                    border: TableBorder.all(color: SparshTheme.borderGrey),
                     children: [
                       const TableRow(children: [
                         SizedBox(),
-                        Center(child: Text('WC Qty', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Center(child: Text('WCP Qty', style: TextStyle(fontWeight: FontWeight.bold))),
+                        Center(child: Text('WC Qty', style: SparshTypography.bodyBold)),
+                        Center(child: Text('WCP Qty', style: SparshTypography.bodyBold)),
                       ]),
                       TableRow(children: [
                         const Center(child: Text('JK')),
@@ -561,7 +562,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Current Month - BW ---
                 const _SectionHeader(icon: Icons.calendar_month, label: 'Current Month - BW (in MT)'),
                 _FantasticCard(
@@ -573,13 +574,13 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         decoration: _fantasticInputDecoration('WC'),
                         readOnly: true,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       TextFormField(
                         initialValue: currentMonthBW['WCP'],
                         decoration: _fantasticInputDecoration('WCP'),
                         readOnly: true,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       TextFormField(
                         initialValue: currentMonthBW['VAP'],
                         decoration: _fantasticInputDecoration('VAP'),
@@ -588,7 +589,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Order Booked in call/e meet (Dynamic List) ---
                 const _SectionHeader(icon: Icons.shopping_cart, label: 'Order Booked in call/e meet'),
                 _FantasticCard(
@@ -597,7 +598,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Order Booked in call/e meet', style: TextStyle(fontWeight: FontWeight.w500)),
+                          Text('Order Booked in call/e meet', style: SparshTypography.bodyBold),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
                             onPressed: addProductRow,
@@ -619,14 +620,14 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                                     onChanged: (v) => productList[idx]['product'] = v,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: SparshSpacing.xs),
                                 Expanded(
                                   child: TextFormField(
                                     decoration: _fantasticInputDecoration('SKU'),
                                     onChanged: (v) => productList[idx]['sku'] = v,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: SparshSpacing.xs),
                                 Expanded(
                                   child: TextFormField(
                                     decoration: _fantasticInputDecoration('Qty'),
@@ -635,7 +636,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                  icon: const Icon(Icons.delete_outline, color: SparshTheme.errorRed),
                                   onPressed: () => removeProductRow(idx),
                                 ),
                               ],
@@ -646,7 +647,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Market -- WCP (Highest selling SKU) (Dynamic List) ---
                 const _SectionHeader(icon: Icons.trending_up, label: 'Market -- WCP (Highest selling SKU)'),
                 _FantasticCard(
@@ -655,7 +656,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Market -- WCP (Highest selling SKU)', style: TextStyle(fontWeight: FontWeight.w500)),
+                          Text('Market -- WCP (Highest selling SKU)', style: SparshTypography.bodyBold),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
                             onPressed: addMarketSkuRow,
@@ -677,14 +678,14 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                                     onChanged: (v) => marketSkuList[idx]['brand'] = v,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: SparshSpacing.xs),
                                 Expanded(
                                   child: TextFormField(
                                     decoration: _fantasticInputDecoration('Product'),
                                     onChanged: (v) => marketSkuList[idx]['product'] = v,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: SparshSpacing.xs),
                                 Expanded(
                                   child: TextFormField(
                                     decoration: _fantasticInputDecoration('Price - B'),
@@ -692,7 +693,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                                     onChanged: (v) => marketSkuList[idx]['priceB'] = v,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: SparshSpacing.xs),
                                 Expanded(
                                   child: TextFormField(
                                     decoration: _fantasticInputDecoration('Price - C'),
@@ -701,7 +702,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                  icon: const Icon(Icons.delete_outline, color: SparshTheme.errorRed),
                                   onPressed: () => removeMarketSkuRow(idx),
                                 ),
                               ],
@@ -712,7 +713,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Gift Distribution (Dynamic List) ---
                 const _SectionHeader(icon: Icons.card_giftcard, label: 'Gift Distribution'),
                 _FantasticCard(
@@ -721,7 +722,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Gift Distribution', style: TextStyle(fontWeight: FontWeight.w500)),
+                          Text('Gift Distribution', style: SparshTypography.bodyBold),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
                             onPressed: addGiftRow,
@@ -743,7 +744,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                                     onChanged: (v) => giftList[idx]['giftType'] = v,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: SparshSpacing.xs),
                                 Expanded(
                                   child: TextFormField(
                                     decoration: _fantasticInputDecoration('Qty'),
@@ -752,7 +753,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                  icon: const Icon(Icons.delete_outline, color: SparshTheme.errorRed),
                                   onPressed: () => removeGiftRow(idx),
                                 ),
                               ],
@@ -763,7 +764,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Tile Adhesives ---
                 const _SectionHeader(icon: Icons.layers, label: 'Tile Adhesives'),
                 _FantasticCard(
@@ -785,7 +786,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Order Execution Date, Remarks, Reason ---
                 const _SectionHeader(icon: Icons.event, label: 'Order Execution & Remarks'),
                 _FantasticCard(
@@ -810,12 +811,12 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         },
                         controller: TextEditingController(text: orderExecutionDate),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       TextFormField(
                         decoration: _fantasticInputDecoration('Any other Remarks'),
                         onChanged: (v) => remarks = v,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: SparshSpacing.sm),
                       DropdownButtonFormField<String>(
                         value: cityReason,
                         decoration: _fantasticInputDecoration('Select Reason'),
@@ -827,20 +828,20 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Map/Location Placeholder ---
                 const _SectionHeader(icon: Icons.map, label: 'Map/Location'),
                 const _FantasticCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(height: 8),
+                      SizedBox(height: SparshSpacing.xs),
                       Text('Map/Location (to be implemented)'),
-                      SizedBox(height: 100, child: Center(child: Text('Map widget placeholder'))),
+                      SizedBox(height: SparshSpacing.lg, child: Center(child: Text('Map widget placeholder'))),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 // --- Last Billing date as per Tally ---
                 const _SectionHeader(icon: Icons.receipt_long, label: 'Last Billing date as per Tally'),
                 _FantasticCard(
@@ -848,7 +849,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Table(
-                        border: TableBorder.all(color: theme.dividerColor),
+                        border: TableBorder.all(color: SparshTheme.borderGrey),
                         columnWidths: const {
                           0: FlexColumnWidth(2),
                           1: FlexColumnWidth(2),
@@ -857,29 +858,29 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         children: [
                           const TableRow(children: [
                             Padding(
-                              padding: EdgeInsets.all(6.0),
-                              child: Text('Product', style: TextStyle(fontWeight: FontWeight.bold)),
+                              padding: EdgeInsets.all(SparshSpacing.xs),
+                              child: Text('Product', style: SparshTypography.bodyBold),
                             ),
                             Padding(
-                              padding: EdgeInsets.all(6.0),
-                              child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)),
+                              padding: EdgeInsets.all(SparshSpacing.xs),
+                              child: Text('Date', style: SparshTypography.bodyBold),
                             ),
                             Padding(
-                              padding: EdgeInsets.all(6.0),
-                              child: Text('Qty.', style: TextStyle(fontWeight: FontWeight.bold)),
+                              padding: EdgeInsets.all(SparshSpacing.xs),
+                              child: Text('Qty.', style: SparshTypography.bodyBold),
                             ),
                           ]),
                           ...lastBillingData.map((row) => TableRow(children: [
                             Padding(
-                              padding: const EdgeInsets.all(6.0),
+                              padding: const EdgeInsets.all(SparshSpacing.xs),
                               child: Text(row['product'] ?? ''),
                             ),
                             Padding(
-                              padding: const EdgeInsets.all(6.0),
+                              padding: const EdgeInsets.all(SparshSpacing.xs),
                               child: Text(row['date'] ?? ''),
                             ),
                             Padding(
-                              padding: const EdgeInsets.all(6.0),
+                              padding: const EdgeInsets.all(SparshSpacing.xs),
                               child: Text(row['qty'] ?? ''),
                             ),
                           ])),
@@ -888,61 +889,61 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: SparshSpacing.xl),
                 // --- Bottom Action Buttons ---
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: theme.colorScheme.primary, width: 2),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: BorderSide(color: SparshTheme.primaryBlue, width: 2),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.lg)),
+                        padding: const EdgeInsets.symmetric(vertical: SparshSpacing.lg),
                       ),
                       onPressed: () {
                         // TODO: Add another activity logic
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Add Another Activity (mock)')),
+                          SnackBar(content: Text('Add Another Activity (mock)')),
                         );
                       },
-                      child: const Text('Add Another Activity', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('Add Another Activity', style: SparshTypography.bodyBold),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: SparshSpacing.sm),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: theme.colorScheme.onPrimary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: SparshTheme.primaryBlue,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.lg)),
+                        padding: const EdgeInsets.symmetric(vertical: SparshSpacing.lg),
                       ),
                       onPressed: () {
                         if (_formKey.currentState!.validate()) {
                           // TODO: Handle submit & exit
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Submitted & Exit (mock)')),
+                            SnackBar(content: Text('Submitted & Exit (mock)')),
                           );
                         }
                       },
-                      child: const Text('Submit & Exit', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('Submit & Exit', style: SparshTypography.bodyBold),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: SparshSpacing.sm),
                     OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: theme.colorScheme.secondary, width: 2),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: BorderSide(color: SparshTheme.primaryBlueAccent, width: 2),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.lg)),
+                        padding: const EdgeInsets.symmetric(vertical: SparshSpacing.lg),
                       ),
                       onPressed: () {
                         // TODO: Show submitted data logic
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Show Submitted Data (mock)')),
+                          SnackBar(content: Text('Show Submitted Data (mock)')),
                         );
                       },
-                      child: const Text('Click to See Submitted Data', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('Click to See Submitted Data', style: SparshTypography.bodyBold),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: SparshSpacing.xl),
               ],
             ),
           ),
@@ -960,18 +961,14 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4, top: 16),
+      padding: const EdgeInsets.only(bottom: 4.0, top: SparshSpacing.md),
       child: Row(
         children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
-          const SizedBox(width: 8),
+          Icon(icon, color: SparshTheme.primaryBlue, size: 22),
+          const SizedBox(width: SparshSpacing.xs),
           Text(
             label,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+            style: SparshTypography.heading2,
           ),
         ],
       ),
@@ -986,11 +983,11 @@ class _FantasticCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 5,
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(vertical: 4.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.lg)),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(SparshSpacing.md),
         child: child,
       ),
     );
@@ -1002,20 +999,20 @@ InputDecoration _fantasticInputDecoration(String label, {IconData? icon}) {
   return InputDecoration(
     labelText: label.isNotEmpty ? label : null,
     filled: true,
-    fillColor: Colors.grey[100],
+              fillColor: SparshTheme.lightGreyBackground,
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Colors.grey.shade300, width: 1.2),
+      borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+      borderSide: BorderSide(color: SparshTheme.borderGrey, width: 1),
     ),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Colors.grey.shade300, width: 1.2),
+      borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+      borderSide: BorderSide(color: SparshTheme.borderGrey, width: 1),
     ),
     focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Colors.blue.shade300, width: 1.5),
+      borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+      borderSide: BorderSide(color: SparshTheme.primaryBlue, width: 2),
     ),
     suffixIcon: icon != null ? Icon(icon, size: 20) : null,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
   );
 }

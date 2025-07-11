@@ -8,7 +8,6 @@ import 'package:learning2/features/dashboard/presentation/pages/profile_screen.d
 import 'package:learning2/features/dashboard/presentation/pages/dashboard_screen.dart';
 import 'package:learning2/features/dashboard/presentation/pages/schema.dart';
 import 'package:learning2/features/dashboard/presentation/pages/token_scan.dart';
-import 'package:learning2/features/dashboard/presentation/pages/live_location_screen.dart';
 import 'package:learning2/features/dashboard/presentation/pages/mail_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,6 +23,7 @@ import 'package:learning2/features/worker/presentation/pages/Worker_attendence.d
 import 'package:learning2/features/worker/presentation/pages/overtime_report_self.dart';
 // import '../chat_screen.dart'; // Removed
 import 'package:learning2/core/constants/fonts.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 
 class WorkerHomeScreen extends StatefulWidget {
   const WorkerHomeScreen({super.key});
@@ -83,7 +83,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
         return true; // Allow closing the app from the home screen
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF1FFFF),
+        backgroundColor: SparshTheme.lightBlueBackground,
         appBar: _buildAppBar(),
         drawer: const WorkerAppDrawer(),
         body: Stack(
@@ -102,11 +102,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
       elevation: 4,
       flexibleSpace: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.blue, Colors.blue],
-          ),
+          gradient: SparshTheme.appBarGradient,
         ),
       ),
       title: Row(

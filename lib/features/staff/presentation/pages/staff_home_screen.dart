@@ -21,6 +21,7 @@ import 'employee_details.dart';
 import 'employee_master.dart';
 import 'first_aid.dart';
 import 'package:learning2/core/constants/fonts.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 
 class StaffHomeScreen extends StatefulWidget {
   const StaffHomeScreen({super.key});
@@ -77,7 +78,7 @@ class _StaffHomeScreenState extends State<StaffHomeScreen> {
         return true; // Allow closing the app from the home screen
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF1FFFF),
+        backgroundColor: SparshTheme.lightBlueBackground,
         appBar: _buildAppBar(),
         drawer: const StaffAppDrawer(),
         body: Stack(
@@ -96,11 +97,7 @@ class _StaffHomeScreenState extends State<StaffHomeScreen> {
       elevation: 4,
       flexibleSpace: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.blue, Colors.blue],
-          ),
+          gradient: SparshTheme.appBarGradient,
         ),
       ),
       title: const Row(

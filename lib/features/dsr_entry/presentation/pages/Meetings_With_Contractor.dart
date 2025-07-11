@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 import 'dsr_entry.dart';
 import 'package:learning2/core/constants/fonts.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 
 class MeetingsWithContractor extends StatefulWidget {
   const MeetingsWithContractor({super.key});
@@ -15,27 +18,22 @@ class MeetingsWithContractor extends StatefulWidget {
 }
 
 class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
-  String? _processItem = 'Select';
-  final List<String> _processdropdownItems = ['Select', 'Add', 'Update'];
+  // Dynamic dropdown state
+  List<String> _processTypes = ['Select'];
+  String? _selectedProcessType = 'Select';
+  bool _isLoadingProcessTypes = true;
 
-  String? _areaCode = 'Select';
-  final List<String> _majorCitiesInIndia = [
-    'Select', 'Mumbai', 'Delhi', 'Ahmedabad', 'Pune', 'Surat'
-  ];
-  final Map<String, Map<String, double>> _cityCoordinates = {
-    'Mumbai': {'latitude': 19.0760, 'longitude': 72.8777},
-    'Delhi': {'latitude': 28.7041, 'longitude': 77.1025},
-    'Ahmedabad': {'latitude': 23.0225, 'longitude': 72.5714},
-    'Pune': {'latitude': 18.5204, 'longitude': 73.8567},
-    'Surat': {'latitude': 21.1702, 'longitude': 72.8311},
-  };
+  List<Map<String, String>> _areaCodes = [];
+  String? _selectedAreaCode = 'Select';
+  bool _isLoadingAreaCodes = true;
 
-  String? _purchaserItem = 'Select';
-  final List<String> _purchaserdropdownItems = [
-    'Select',
-    'Purchaser(Non Trade)',
-    'AUTHORISED DEALER',
-  ];
+  List<Map<String, String>> _purchasers = [];
+  String? _selectedPurchaser = 'Select';
+  bool _isLoadingPurchasers = false;
+
+  List<Map<String, String>> _purchaserCodes = [];
+  String? _selectedPurchaserCode = 'Select';
+  bool _isLoadingPurchaserCodes = false;
 
   final TextEditingController _submissionDateController = TextEditingController();
   final TextEditingController _reportDateController     = TextEditingController();
@@ -45,7 +43,13 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
   final List<int> _uploadRows    = [0];
   final ImagePicker _picker      = ImagePicker();
   final List<File?> _selectedImages = [null];
+  
+  // Controllers for Action Remarks rows
+  final List<TextEditingController> _actionPointsControllers = [TextEditingController()];
+  final List<TextEditingController> _closerDateControllers = [TextEditingController()];
 
+  // Product dropdown state
+  String? _selectedProduct = 'Select';
   // Coordinate controllers (if you choose to display these)
   final TextEditingController _yourLatitudeController  = TextEditingController();
   final TextEditingController _yourLongitudeController = TextEditingController();
@@ -60,6 +64,14 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
   final _formKey = GlobalKey<FormState>();
 
   @override
+  void initState() {
+    super.initState();
+    _fetchProcessTypes();
+    _fetchAreaCodes();
+    _setSubmissionDateToToday();
+  }
+
+  @override
   void dispose() {
     _submissionDateController.dispose();
     _reportDateController.dispose();
@@ -70,49 +82,38 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
     _contrnamController.dispose();
     _topcdissController.dispose();
     _remarkscController.dispose();
+    
+    // Dispose Action Remarks controllers
+    for (var controller in _actionPointsControllers) {
+      controller.dispose();
+    }
+    for (var controller in _closerDateControllers) {
+      controller.dispose();
+    }
+    
     super.dispose();
   }
 
-  Future<void> _pickSubmissionDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedSubmissionDate ?? now,
-      firstDate: DateTime(1900),
-      lastDate: DateTime(now.year + 5),
-      builder: (context, child) => Theme(
-        data: ThemeData.light().copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: Color(0xFF2196F3),
-            onPrimary: Colors.white,
-            onSurface: Colors.black87,
-          ),
-          dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedSubmissionDate = picked;
-        _submissionDateController.text = DateFormat('yyyy-MM-dd').format(picked);
-      });
-    }
+  void _setSubmissionDateToToday() {
+    final today = DateTime.now();
+    _selectedSubmissionDate = today;
+    _submissionDateController.text = DateFormat('yyyy-MM-dd').format(today);
   }
 
   Future<void> _pickReportDate() async {
     final now = DateTime.now();
+    final threeDaysAgo = now.subtract(const Duration(days: 3));
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedReportDate ?? now,
-      firstDate: DateTime(1900),
+      firstDate: threeDaysAgo,
       lastDate: DateTime(now.year + 5),
       builder: (context, child) => Theme(
         data: ThemeData.light().copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: Color(0xFF2196F3),
+          colorScheme: ColorScheme.light(
+            primary: SparshTheme.primaryBlueAccent,
             onPrimary: Colors.white,
-            onSurface: Colors.black87,
+            onSurface: SparshTheme.textPrimary,
           ),
           dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
         ),
@@ -131,6 +132,8 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
     setState(() {
       _uploadRows.add(_uploadRows.length);
       _selectedImages.add(null);
+      _actionPointsControllers.add(TextEditingController());
+      _closerDateControllers.add(TextEditingController());
     });
   }
 
@@ -139,6 +142,8 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
     setState(() {
       _uploadRows.removeLast();
       _selectedImages.removeLast();
+      _actionPointsControllers.removeLast();
+      _closerDateControllers.removeLast();
     });
   }
 
@@ -169,31 +174,77 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
     );
   }
 
-  void _onSubmit({required bool exitAfter}) {
+  Future<void> submitDsrEntry(Map<String, dynamic> dsrData) async {
+    final url = Uri.parse('http://192.168.36.25/api/DsrTry');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(dsrData),
+    );
+    print('Status: ${response.statusCode}');
+    print('Body: ${response.body}');
+    if (response.statusCode == 201) {
+      print('✅ Data inserted successfully!');
+    } else {
+      print('❌ Data NOT inserted! Error: ${response.body}');
+    }
+  }
+
+  void _onSubmit({required bool exitAfter}) async {
     if (!_formKey.currentState!.validate()) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(exitAfter
-            ? 'Submitted successfully. Exiting...'
-            : 'Submitted successfully. Ready for new entry.'),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    // Map form fields to DsrEntryDto structure
+    final dsrData = {
+      'ActivityType': 'Meetings with Contractor / Stockist',
+      'SubmissionDate': _selectedSubmissionDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'ReportDate': _selectedReportDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'CreateId': 'SYSTEM',
+      'AreaCode': _selectedAreaCode ?? '',
+      'Purchaser': _selectedPurchaser ?? '',
+      'PurchaserCode': _selectedPurchaserCode ?? '',
+      'dsrRem01': _contrnamController.text,
+      'dsrRem02': _topcdissController.text,
+      'dsrRem03': _remarkscController.text,
+      'dsrRem04': '',
+      'dsrRem05': '',
+      'dsrRem06': '',
+      'dsrRem07': '',
+      'dsrRem08': '',
+    };
 
-    if (exitAfter) {
-      Navigator.of(context).pop();
-    } else {
-      _resetForm();
+    try {
+      await submitDsrEntry(dsrData);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(exitAfter
+              ? 'Submitted successfully. Exiting...'
+              : 'Submitted successfully. Ready for new entry.'),
+          backgroundColor: SparshTheme.successGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      if (exitAfter) {
+        Navigator.of(context).pop();
+      } else {
+        _resetForm();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Submission failed: \\${e.toString()}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
   void _resetForm() {
     setState(() {
-      _processItem = 'Select';
-      _areaCode = 'Select';
-      _purchaserItem = 'Select';
+      _selectedProcessType = 'Select';
+      _selectedAreaCode = 'Select';
+      _selectedPurchaser = 'Select';
+      _selectedPurchaserCode = 'Select';
 
       _selectedSubmissionDate = null;
       _selectedReportDate     = null;
@@ -215,8 +266,245 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
       _selectedImages
         ..clear()
         ..add(null);
+      _actionPointsControllers
+        ..clear()
+        ..add(TextEditingController());
+      _closerDateControllers
+        ..clear()
+        ..add(TextEditingController());
     });
     _formKey.currentState!.reset();
+  }
+
+  Future<void> _fetchProcessTypes() async {
+    setState(() { _isLoadingProcessTypes = true; });
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getProcessTypes');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final processTypesList = (data['ProcessTypes'] ?? data['processTypes']) as List;
+        final processTypes = processTypesList.map((type) {
+          if (type is Map) {
+            return type['Description']?.toString() ?? type['description']?.toString() ?? type['Code']?.toString() ?? type['code']?.toString() ?? '';
+          } else {
+            return type.toString();
+          }
+        }).where((type) => type.isNotEmpty).toList();
+        setState(() {
+          _processTypes = ['Select', ...processTypes];
+          _isLoadingProcessTypes = false;
+        });
+      } else {
+        setState(() {
+          _processTypes = ['Select'];
+          _isLoadingProcessTypes = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _processTypes = ['Select'];
+        _isLoadingProcessTypes = false;
+      });
+    }
+  }
+
+  Future<void> _fetchAreaCodes() async {
+    setState(() { _isLoadingAreaCodes = true; });
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getAreaCodes');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          final processedAreaCodes = data.map((item) {
+            final code = item['Code']?.toString() ?? item['code']?.toString() ?? item['AreaCode']?.toString() ?? '';
+            final name = item['Name']?.toString() ?? item['name']?.toString() ?? code;
+            return {'code': code, 'name': name};
+          }).where((item) => item['code']!.isNotEmpty && item['code'] != '   ').toList();
+          // Remove duplicates
+          final seenCodes = <String>{};
+          final uniqueAreaCodes = [
+            {'code': 'Select', 'name': 'Select'},
+            ...processedAreaCodes.where((item) {
+              if (seenCodes.contains(item['code'])) return false;
+              seenCodes.add(item['code']!);
+              return true;
+            })
+          ];
+          setState(() {
+            _areaCodes = uniqueAreaCodes;
+            _isLoadingAreaCodes = false;
+            // Reset selected value if not present
+            final validCodes = _areaCodes.map((a) => a['code']).toSet();
+            if (_selectedAreaCode == null || !validCodes.contains(_selectedAreaCode)) {
+              _selectedAreaCode = 'Select';
+            }
+          });
+        } else {
+          setState(() {
+            _areaCodes = [{'code': 'Select', 'name': 'Select'}];
+            _isLoadingAreaCodes = false;
+          });
+        }
+      } else {
+        setState(() {
+          _areaCodes = [{'code': 'Select', 'name': 'Select'}];
+          _isLoadingAreaCodes = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _areaCodes = [{'code': 'Select', 'name': 'Select'}];
+        _isLoadingAreaCodes = false;
+      });
+    }
+  }
+
+  Future<void> _fetchPurchasers(String areaCode) async {
+    if (areaCode == 'Select') {
+      setState(() {
+        _purchasers = [{'code': 'Select', 'name': 'Select'}];
+        _selectedPurchaser = 'Select';
+        _selectedPurchaserCode = 'Select';
+        _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
+      });
+      return;
+    }
+    setState(() {
+      _isLoadingPurchasers = true;
+      _selectedPurchaser = 'Select';
+      _selectedPurchaserCode = 'Select';
+      _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
+    });
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getPurchaserOptions');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          // Remove duplicates by code
+          final seenCodes = <String>{};
+          final uniquePurchasers = [
+            {'code': 'Select', 'name': 'Select'},
+            ...data.map((item) => {
+              'code': item['Code']?.toString() ?? item['code']?.toString() ?? '',
+              'name': item['Description']?.toString() ?? item['description']?.toString() ?? '',
+            }).where((item) {
+              if (item['code']!.isEmpty || seenCodes.contains(item['code'])) return false;
+              seenCodes.add(item['code']!);
+              return true;
+            }).toList()
+          ];
+          setState(() {
+            _purchasers = uniquePurchasers;
+            _isLoadingPurchasers = false;
+            // Reset selected value if not present
+            final validCodes = _purchasers.map((p) => p['code']).toSet();
+            if (_selectedPurchaser == null || !validCodes.contains(_selectedPurchaser)) {
+              _selectedPurchaser = 'Select';
+            }
+          });
+        } else {
+          setState(() {
+            _purchasers = [{'code': 'Select', 'name': 'Select'}];
+            _isLoadingPurchasers = false;
+          });
+        }
+      } else {
+        setState(() {
+          _purchasers = [{'code': 'Select', 'name': 'Select'}];
+          _isLoadingPurchasers = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _purchasers = [{'code': 'Select', 'name': 'Select'}];
+        _isLoadingPurchasers = false;
+      });
+    }
+  }
+
+  Future<void> _fetchPurchaserCodes(String purchaserCode) async {
+    if (purchaserCode == 'Select' || _selectedAreaCode == 'Select') {
+      setState(() {
+        _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
+        _selectedPurchaserCode = 'Select';
+      });
+      return;
+    }
+    setState(() {
+      _isLoadingPurchaserCodes = true;
+      _selectedPurchaserCode = 'Select';
+    });
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getPurchaserCode')
+          .replace(queryParameters: {
+        'areaCode': _selectedAreaCode,
+        'purchaserType': purchaserCode,
+      });
+      final response = await http.get(url);
+      final data = jsonDecode(response.body);
+      if (data is Map && (data.containsKey('PurchaserCodes') || data.containsKey('purchaserCodes'))) {
+        final purchaserCodesList = (data['PurchaserCodes'] ?? data['purchaserCodes']) as List;
+        final purchaserCodes = purchaserCodesList.map((code) => code.toString()).toList();
+        if (purchaserCodes.isNotEmpty) {
+          setState(() {
+            _purchaserCodes = [
+              {'code': 'Select', 'name': 'Select'},
+              ...purchaserCodes.map((code) => {'code': code, 'name': code}).toList()
+            ];
+            _isLoadingPurchaserCodes = false;
+          });
+        } else {
+          setState(() {
+            _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
+            _isLoadingPurchaserCodes = false;
+          });
+        }
+      } else {
+        setState(() {
+          _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
+          _isLoadingPurchaserCodes = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
+        _isLoadingPurchaserCodes = false;
+      });
+    }
+  }
+
+  // Dropdown change handlers
+  void _onProcessTypeChanged(String? value) {
+    setState(() {
+      _selectedProcessType = value;
+    });
+  }
+  void _onAreaCodeChanged(String? value) {
+    setState(() {
+      _selectedAreaCode = value;
+      _selectedPurchaser = 'Select';
+      _selectedPurchaserCode = 'Select';
+    });
+    if (value != null && value != 'Select') {
+      _fetchPurchasers(value);
+    }
+  }
+  void _onPurchaserChanged(String? value) {
+    setState(() {
+      _selectedPurchaser = value;
+      _selectedPurchaserCode = 'Select';
+    });
+    if (value != null && value != 'Select') {
+      _fetchPurchaserCodes(value);
+    }
+  }
+  void _onPurchaserCodeChanged(String? value) {
+    setState(() {
+      _selectedPurchaserCode = value;
+    });
   }
 
   Widget _buildTextField(
@@ -234,10 +522,10 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
       readOnly: readOnly,
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+        hintStyle: TextStyle(color: SparshTheme.textSecondary, fontSize: 16),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.md), borderSide: BorderSide.none),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: SparshTheme.cardBackground,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
       validator: validator,
@@ -254,11 +542,11 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
       readOnly: true,
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
-        suffixIcon: IconButton(icon: const Icon(Icons.calendar_today, color: Colors.blueAccent), onPressed: onTap),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+        hintStyle: TextStyle(color: SparshTheme.textSecondary, fontSize: 16),
+        suffixIcon: IconButton(icon: const Icon(Icons.calendar_today, color: SparshTheme.primaryBlueAccent), onPressed: onTap),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.md), borderSide: BorderSide.none),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: SparshTheme.cardBackground,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
       onTap: onTap,
@@ -268,7 +556,7 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
 
   Widget _buildLabel(String text) => Text(
     text,
-    style: Fonts.body.copyWith(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.black87),
+    style: SparshTypography.labelLarge.copyWith(color: SparshTheme.textPrimary),
   );
 
   Widget _buildDropdownField({
@@ -345,18 +633,18 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        backgroundColor: Colors.grey.shade100,
+        backgroundColor: SparshTheme.scaffoldBackground,
         appBar: AppBar(
           leading: IconButton(
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DsrEntry())),
             icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 22),
           ),
-          title: const Text(
-            'Meetings With Contractor',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          title: Text(
+            'Meeting With Contractor',
+            style: SparshTypography.heading5.copyWith(color: Colors.white),
             overflow: TextOverflow.ellipsis,
           ),
-          backgroundColor: const Color(0xFF2196F3),
+          backgroundColor: SparshTheme.primaryBlueAccent,
           elevation: 0,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.only(bottomLeft: Radius.circular(15), bottomRight: Radius.circular(15)),
@@ -367,7 +655,7 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Colors.grey.shade100, Colors.white],
+              colors: [SparshTheme.scaffoldBackground, SparshTheme.cardBackground],
               stops: const [0.0, 1.0],
             ),
           ),
@@ -377,56 +665,313 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
               key: _formKey,
               child: ListView(
                 children: [
+                  // Process Type Dropdown
                   _buildLabel('Process type'),
                   const SizedBox(height: 8),
-                  _buildDropdownField(
-                    value: _processItem,
-                    items: _processdropdownItems,
-                    onChanged: (val) => setState(() => _processItem = val),
+                  Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade300, width: 1),
+                      color: Colors.white,
+                    ),
+                    child: _isLoadingProcessTypes
+                        ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                        : DropdownButton<String>(
+                            isExpanded: true,
+                            value: _selectedProcessType,
+                            underline: Container(),
+                            items: _processTypes
+                                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+                                .toList(),
+                            onChanged: _onProcessTypeChanged,
+                          ),
                   ),
 
                   const SizedBox(height: 24),
                   _buildLabel('Submission Date'),
                   const SizedBox(height: 8),
-                  _buildDateField(_submissionDateController, _pickSubmissionDate, 'Select Date'),
+                  TextFormField(
+                    controller: _submissionDateController,
+                    readOnly: true,
+                    enabled: false,
+                    decoration: InputDecoration(
+                      hintText: 'Submission Date',
+                      filled: true,
+                      fillColor: SparshTheme.lightGreyBackground,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                        borderSide: BorderSide.none,
+                      ),
+                      suffixIcon: Icon(Icons.lock, color: Colors.grey),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    validator: (val) => (val == null || val.isEmpty) ? 'Please select a date' : null,
+                  ),
 
                   const SizedBox(height: 24),
                   _buildLabel('Report Date'),
                   const SizedBox(height: 8),
-                  _buildDateField(_reportDateController, _pickReportDate, 'Select Date'),
+                  TextFormField(
+                    controller: _reportDateController,
+                    readOnly: true,
+                    onTap: _pickReportDate,
+                    decoration: InputDecoration(
+                      hintText: 'Select Report Date',
+                      filled: true,
+                      fillColor: SparshTheme.lightGreyBackground,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                        borderSide: BorderSide.none,
+                      ),
+                      suffixIcon: const Icon(Icons.calendar_today),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    validator: (val) => (val == null || val.isEmpty) ? 'Please select a date' : null,
+                  ),
 
                   const SizedBox(height: 24),
-                  _buildLabel('Area code *:'),
+                  _buildLabel('Area Code'),
                   const SizedBox(height: 8),
-                  _buildSearchableDropdownField(
-                    selected: _areaCode!,
-                    items: _majorCitiesInIndia,
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _areaCode = val;
-                          if (_cityCoordinates.containsKey(val)) {
-                            _custLatitudeController.text =
-                                _cityCoordinates[val]!['latitude']!.toString();
-                            _custLongitudeController.text =
-                                _cityCoordinates[val]!['longitude']!.toString();
-                          } else {
-                            _custLatitudeController.clear();
-                            _custLongitudeController.clear();
-                          }
-                        });
-                      }
-                    },
-                    validator: (val) => (val == null || val == 'Select') ? 'Please select an Area Code' : null,
+                  Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade300, width: 1),
+                      color: Colors.white,
+                    ),
+                    child: _isLoadingAreaCodes
+                        ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                        : DropdownButton<String>(
+                            isExpanded: true,
+                            value: _selectedAreaCode,
+                            underline: Container(),
+                            items: _areaCodes.map((area) {
+                              final code = area['code']!;
+                              final name = area['name']!;
+                              return DropdownMenuItem(
+                                value: code,
+                                child: Text(code == 'Select' ? 'Select' : '$code - $name'),
+                              );
+                            }).toList(),
+                            onChanged: _onAreaCodeChanged,
+                          ),
                   ),
 
                   const SizedBox(height: 24),
                   _buildLabel('Purchaser'),
                   const SizedBox(height: 8),
-                  _buildDropdownField(
-                    value: _purchaserItem,
-                    items: _purchaserdropdownItems,
-                    onChanged: (val) => setState(() => _purchaserItem = val),
+                  Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade300, width: 1),
+                      color: Colors.white,
+                    ),
+                    child: _isLoadingPurchasers
+                        ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                        : DropdownButton<String>(
+                            isExpanded: true,
+                            value: _selectedPurchaser,
+                            underline: Container(),
+                            items: _purchasers.map((purchaser) {
+                              final code = purchaser['code']!;
+                              final name = purchaser['name']!;
+                              return DropdownMenuItem(
+                                value: code,
+                                child: Text(code == 'Select' ? 'Select' : name),
+                              );
+                            }).toList(),
+                            onChanged: _onPurchaserChanged,
+                          ),
+                  ),
+
+                  const SizedBox(height: 24),
+                  _buildLabel('Purchaser Code'),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade300, width: 1),
+                      color: Colors.white,
+                    ),
+                    child: _isLoadingPurchaserCodes
+                        ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                        : DropdownButton<String>(
+                            isExpanded: true,
+                            value: _selectedPurchaserCode,
+                            underline: Container(),
+                            items: _purchaserCodes.map((code) {
+                              return DropdownMenuItem(
+                                value: code['code'],
+                                child: Text(code['code'] == 'Select' ? 'Select' : code['code']!),
+                              );
+                            }).toList(),
+                            onChanged: _onPurchaserCodeChanged,
+                          ),
+                  ),
+
+                  // Product Name Dropdown (as per screenshot)
+                  const SizedBox(height: 24),
+                  _buildLabel('Product for which Sample is applied'),
+                  const SizedBox(height: 8),
+                  DropdownSearch<String>(
+                    items: const [
+                      'Select',
+                      'White Cement',
+                      'Wall Care Putty',
+                      'Textura',
+                      'Levelplast',
+                      'Wall Primer',
+                    ],
+                    selectedItem: _selectedProduct ?? 'Select',
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedProduct = value;
+                      });
+                    },
+                    popupProps: PopupProps.menu(
+                      showSearchBox: true,
+                      searchFieldProps: const TextFieldProps(
+                        decoration: InputDecoration(
+                          hintText: 'Search...',
+                          hintStyle: TextStyle(color: Colors.black54),
+                          fillColor: Colors.white,
+                          filled: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            borderSide: BorderSide(color: Colors.blueAccent),
+                          ),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                      ),
+                      itemBuilder: (context, item, isSelected) => Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(item, style: Fonts.body.copyWith(color: Colors.black87)),
+                      ),
+                    ),
+                    dropdownDecoratorProps: DropDownDecoratorProps(
+                      dropdownSearchDecoration: InputDecoration(
+                        hintText: 'Select',
+                        filled: true,
+                        fillColor: Colors.white,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                  _buildLabel('New Orders Received'),
+                  const SizedBox(height: 8),
+                  _buildTextField(
+                    'New Orders Received',
+                    controller: TextEditingController(), // Add controller if needed
+                  ),
+
+                  const SizedBox(height: 24),
+                  _buildLabel('Ugai Recovery Plans'),
+                  const SizedBox(height: 8),
+                  _buildTextField(
+                    'Ugai Recovery Plans',
+                    controller: TextEditingController(), // Add controller if needed
+                    maxLines: 2,
+                  ),
+
+                  const SizedBox(height: 24),
+                  _buildLabel('Any Purchaser Grievances'),
+                  const SizedBox(height: 8),
+                  _buildTextField(
+                    'Any Purchaser Grievances',
+                    controller: TextEditingController(), // Add controller if needed
+                    maxLines: 2,
+                  ),
+
+                  const SizedBox(height: 24),
+                  _buildLabel('Any Other Points'),
+                  const SizedBox(height: 8),
+                  _buildTextField(
+                    'Any Other Points',
+                    controller: TextEditingController(), // Add controller if needed
+                    maxLines: 2,
+                  ),
+
+                  const SizedBox(height: 24),
+                  _buildLabel('Action Remarks'),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: _buildLabel('Action Points')),
+                            Expanded(child: _buildLabel('Closer Date')),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: _removeRow,
+                            ),
+                          ],
+                        ),
+                        ...List.generate(_uploadRows.length, (index) {
+                          return Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                  '',
+                                  controller: _actionPointsControllers[index], // Use controller
+                                  maxLines: 2,
+                                ),
+                              ),
+                              Expanded(
+                                child: _buildDateField(
+                                  _closerDateControllers[index], // Use controller
+                                  () async {
+                                    // Date picker for closer date
+                                    final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: DateTime.now(),
+                                      firstDate: DateTime(1900),
+                                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                                    );
+                                    // Set value if picked
+                                    if (picked != null) {
+                                      setState(() {
+                                        _closerDateControllers[index].text = DateFormat('yyyy-MM-dd').format(picked);
+                                      });
+                                    }
+                                  },
+                                  'Closer Date',
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: _removeRow,
+                              ),
+                            ],
+                          );
+                        }),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            ElevatedButton(
+                              onPressed: _addRow,
+                              child: const Text('Add'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 24),
@@ -436,21 +981,21 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
                     margin: const EdgeInsets.only(top: 8, bottom: 16),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200),
+                      color: SparshTheme.cardBackground,
+                      borderRadius: BorderRadius.circular(SparshBorderRadius.lg),
+                      border: Border.all(color: SparshTheme.borderGrey),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.photo_library_rounded, color: Color(0xFF2196F3), size: 24),
+                            Icon(Icons.photo_library_rounded, color: SparshTheme.primaryBlueAccent, size: 24),
                             const SizedBox(width: 8),
                             Flexible(
                               child: Text(
                                 'Supporting Documents',
-                                style: Fonts.bodyBold.copyWith(fontSize: 18, color: const Color(0xFF2196F3)),
+                                style: Fonts.bodyBold.copyWith(fontSize: 18, color: SparshTheme.primaryBlueAccent),
                                 softWrap: true,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -478,11 +1023,11 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF2196F3).withOpacity(0.1),
+                                        color: SparshTheme.primaryBlueAccent.withOpacity(0.1),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Text('Document ${index + 1}',
-                                          style: Fonts.bodyBold.copyWith(fontSize: 14, color: const Color(0xFF2196F3))),
+                                          style: Fonts.bodyBold.copyWith(fontSize: 14, color: SparshTheme.primaryBlueAccent)),
                                     ),
                                     const Spacer(),
                                     if (file != null)
@@ -534,7 +1079,7 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
                                         label: Text(file != null ? 'Replace' : 'Upload'),
                                         style: ElevatedButton.styleFrom(
                                           foregroundColor: Colors.white,
-                                          backgroundColor: file != null ? Colors.amber.shade600 : const Color(0xFF2196F3),
+                                          backgroundColor: file != null ? Colors.amber.shade600 : SparshTheme.primaryBlueAccent,
                                           elevation: 0,
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                           padding: const EdgeInsets.symmetric(vertical: 12),

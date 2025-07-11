@@ -2,7 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
+import '../../../../core/theme/app_theme.dart';
 import 'dsr_entry.dart';
 
 class PhoneCallWithUnregisterdPurchaser extends StatefulWidget {
@@ -76,6 +79,33 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _setSubmissionDateToToday();
+  }
+
+  void _setSubmissionDateToToday() {
+    final today = DateTime.now();
+    _submissionDateController.text = DateFormat('yyyy-MM-dd').format(today);
+  }
+
+  Future<void> _pickReportDate() async {
+    final now = DateTime.now();
+    final threeDaysAgo = now.subtract(const Duration(days: 3));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: threeDaysAgo,
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked != null) {
+      setState(() {
+        _reportDateController.text = DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
+  }
+
   Future<void> _pickDate(TextEditingController controller) async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -122,23 +152,52 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
     );
   }
 
-  void _onSubmit({required bool exitAfter}) {
+  void _onSubmit({required bool exitAfter}) async {
     if (!_formKey.currentState!.validate()) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(exitAfter
-            ? 'Form validated. Exiting…'
-            : 'Form validated. Ready for new entry.'),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    final dsrData = {
+      'ActivityType': 'Phone Call with Unregistered Purchasers',
+      'SubmissionDate': _submissionDateController.text,
+      'ReportDate': _reportDateController.text,
+      'CreateId': 'SYSTEM',
+      'AreaCode': _areaCode ?? '',
+      'Purchaser': _purchaserType ?? '',
+      'PurchaserCode': '',
+      'dsrRem01': _mobileController.text,
+      'dsrRem02': _partyNameController.text,
+      'dsrRem03': _counterType ?? '',
+      'dsrRem04': _pinCodeController.text,
+      'dsrRem05': _districtController.text,
+      'dsrRem06': _visitedCityController.text,
+      'dsrRem07': _nameDesigController.text,
+      'dsrRem08': _topicsController.text,
+      'Images': _selectedImages.map((file) => file?.path).toList(),
+    };
 
-    if (exitAfter) {
-      Navigator.of(context).pop();
-    } else {
-      _clearForm();
+    try {
+      await submitDsrEntry(dsrData);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(exitAfter
+              ? 'Submitted successfully. Exiting...'
+              : 'Submitted successfully. Ready for new entry.'),
+          backgroundColor: SparshTheme.successGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      if (exitAfter) {
+        Navigator.of(context).pop();
+      } else {
+        _clearForm();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Submission failed: ${e.toString()}'),
+          backgroundColor: SparshTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -162,10 +221,26 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
     _formKey.currentState!.reset();
   }
 
+  Future<void> submitDsrEntry(Map<String, dynamic> dsrData) async {
+    final url = Uri.parse('http://192.168.36.25/api/DsrTry');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(dsrData),
+    );
+    print('Status: ${response.statusCode}');
+    print('Body: ${response.body}');
+    if (response.statusCode == 201) {
+      print('✅ Data inserted successfully!');
+    } else {
+      print('❌ Data NOT inserted! Error: ${response.body}');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: SparshTheme.scaffoldBackground,
       appBar: AppBar(
         leading: IconButton(
           onPressed: () =>
@@ -174,11 +249,11 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
           icon: const Icon(Icons.arrow_back_ios_new,
               color: Colors.white, size: 22),
         ),
-        title: const Text(
+        title: Text(
           'Phone Call with Unregistered Purchasers',
-          style: TextStyle(color: Colors.white),
+          style: SparshTypography.heading2.copyWith(color: Colors.white),
         ),
-        backgroundColor: const Color(0xFF2196F3),
+        backgroundColor: SparshTheme.primaryBlueAccent,
         elevation: 0,
       ),
       body: Padding(
@@ -196,17 +271,42 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
               const SizedBox(height: 12),
 
               _buildLabel('Submission Date'),
-              _buildDateField(
-                  _submissionDateController,
-                      () => _pickDate(_submissionDateController),
-                  'Select Submission Date'),
+              TextFormField(
+                controller: _submissionDateController,
+                readOnly: true,
+                enabled: false,
+                decoration: InputDecoration(
+                  hintText: 'Submission Date',
+                  filled: true,
+                  fillColor: SparshTheme.cardBackground,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                    borderSide: BorderSide.none,
+                  ),
+                  suffixIcon: Icon(Icons.lock, color: Colors.grey),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
+                ),
+                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+              ),
               const SizedBox(height: 12),
-
               _buildLabel('Report Date'),
-              _buildDateField(
-                  _reportDateController,
-                      () => _pickDate(_reportDateController),
-                  'Select Report Date'),
+              TextFormField(
+                controller: _reportDateController,
+                readOnly: true,
+                onTap: _pickReportDate,
+                decoration: InputDecoration(
+                  hintText: 'Select Report Date',
+                  filled: true,
+                  fillColor: SparshTheme.cardBackground,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                    borderSide: BorderSide.none,
+                  ),
+                  suffixIcon: const Icon(Icons.calendar_today),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
+                ),
+                validator: (val) => val == null || val.isEmpty ? 'Select date' : null,
+              ),
               const SizedBox(height: 12),
 
               _buildLabel('Area Code'),
@@ -294,12 +394,12 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
+                    color: SparshTheme.lightGreyBackground,
+                    borderRadius: BorderRadius.circular(SparshBorderRadius.md),
                     border: Border.all(
                         color: file != null
-                            ? Colors.green.shade200
-                            : Colors.grey.shade200,
+                            ? SparshTheme.successGreen
+                            : SparshTheme.borderGrey,
                         width: 1.5),
                   ),
                   child: Column(
@@ -317,18 +417,18 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: Colors.green.shade100,
-                                borderRadius: BorderRadius.circular(16),
+                                color: SparshTheme.successLight,
+                                borderRadius: BorderRadius.circular(SparshBorderRadius.lg),
                               ),
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.check_circle,
-                                      color: Colors.green, size: 16),
+                                      color: SparshTheme.successGreen, size: 16),
                                   SizedBox(width: 4),
                                   Text('Uploaded',
                                       style: TextStyle(
-                                          color: Colors.green
+                                          color: SparshTheme.successGreen
                                           ,
                                           fontWeight: FontWeight.w500,
                                           fontSize: 13)),
@@ -359,7 +459,7 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
                                 icon: const Icon(Icons.visibility, size: 18),
                                 label: const Text('View'),
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green),
+                                    backgroundColor: SparshTheme.successGreen),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -370,7 +470,7 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
                                 });
                               },
                               icon: const Icon(Icons.remove_circle_outline,
-                                  color: Colors.red),
+                                  color: SparshTheme.errorRed),
                             ),
                           ]
                         ],
@@ -415,8 +515,7 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Text(
           text,
-          style: const TextStyle(
-              fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+          style: SparshTypography.labelLarge.copyWith(color: SparshTheme.textPrimary),
         ),
       );
 
@@ -432,9 +531,14 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
       maxLines: maxLines,
       decoration: InputDecoration(
         hintText: hint,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        filled: true,
+        fillColor: SparshTheme.cardBackground,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+          borderSide: BorderSide.none,
+        ),
         contentPadding: const EdgeInsets.symmetric(
-            horizontal: 10, vertical: 12),
+            horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
       ),
       validator: validator,
     );
@@ -449,9 +553,9 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300, width: 1),
-        color: Colors.white,
+        borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+        border: Border.all(color: SparshTheme.borderGrey, width: 1),
+        color: SparshTheme.cardBackground,
       ),
       child: DropdownButton<String>(
         isExpanded: true,
@@ -471,11 +575,16 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
         readOnly: true,
         decoration: InputDecoration(
           hintText: hint,
+          filled: true,
+          fillColor: SparshTheme.cardBackground,
           suffixIcon: IconButton(
               icon: const Icon(Icons.calendar_today), onPressed: onTap),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+            borderSide: BorderSide.none,
+          ),
           contentPadding: const EdgeInsets.symmetric(
-              horizontal: 10, vertical: 12),
+              horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
         ),
         onTap: onTap,
         validator: (val) => val == null || val.isEmpty ? 'Select date' : null,

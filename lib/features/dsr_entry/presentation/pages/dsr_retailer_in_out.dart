@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import '../../../../core/theme/app_theme.dart';
 import 'DsrVisitScreen.dart';
 
 class DsrRetailerInOut extends StatefulWidget {
@@ -46,7 +47,7 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
   late final Animation<double> _fadeAnimation;
 
   // State
-  final String? _purchaserRetailerItem = 'Select';
+  final String _purchaserRetailerItem = 'Select';
   AreaCodeModel? _selectedAreaCode;
   DateTime? _selectedDate;
 
@@ -70,13 +71,13 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
   final List<XFile?> _selectedImages = [null];
   final _picker = ImagePicker();
 
-  // Colors
-  final _primaryColor    = const Color(0xFF2962FF);
-  final _secondaryColor  = const Color(0xFF448AFF);
-  final _backgroundColor = const Color(0xFFF5F7FA);
-  final _cardColor       = Colors.white;
-  final _textColor       = const Color(0xFF263238);
-  final _hintColor       = const Color(0xFF90A4AE);
+  // Colors - Using theme constants
+  final _primaryColor    = SparshTheme.primaryBlueAccent;
+  final _secondaryColor  = SparshTheme.primaryBlueLight;
+  final _backgroundColor = SparshTheme.scaffoldBackground;
+  final _cardColor       = SparshTheme.cardBackground;
+  final _textColor       = SparshTheme.textPrimary;
+  final _hintColor       = SparshTheme.textSecondary;
 
   List<String> _codeSearchList = [];
   String? _selectedCodeSearch;
@@ -192,9 +193,9 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
       builder: (ctx, child) => Theme(
         data: ThemeData.light().copyWith(
           colorScheme: ColorScheme.light(
-            primary: _primaryColor,
+            primary: SparshTheme.primaryBlueAccent,
             onPrimary: Colors.white,
-            onSurface: _textColor,
+            onSurface: SparshTheme.textPrimary,
           ),
           dialogTheme: const DialogThemeData(
             shape: RoundedRectangleBorder(
@@ -253,21 +254,20 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
         ),
-        title: const Row(
+        title: Row(
           children: [
             Icon(
               Icons.warning_amber_rounded,
-              color: Colors.orange,
-              size: 28,
+              color: SparshTheme.warningOrange,
+              size: SparshSpacing.lg,
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: SparshSpacing.sm),
             Text(
               'Distance Warning',
-              style: TextStyle(
+              style: SparshTypography.heading5.copyWith(
                 fontWeight: FontWeight.bold,
-                fontSize: 18,
               ),
             ),
           ],
@@ -277,33 +277,32 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'You are currently \\${_calculatedDistance.toStringAsFixed(2)} meters away from the customer location.',
-              style: const TextStyle(
-                fontSize: 16,
+              'You are currently ${_calculatedDistance.toStringAsFixed(2)} meters away from the customer location.',
+              style: SparshTypography.bodyLarge.copyWith(
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: SparshSpacing.sm),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(SparshSpacing.md),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                color: SparshTheme.warningOrange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(SparshBorderRadius.lg),
+                border: Border.all(color: SparshTheme.warningOrange.withOpacity(0.3)),
               ),
               child: Row(
                 children: [
                   const Icon(
                     Icons.location_on,
-                    color: Colors.orange,
-                    size: 20,
+                    color: SparshTheme.warningOrange,
+                    size: SparshSpacing.lg,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: SparshSpacing.sm),
                   Expanded(
                     child: Text(
                       'Please visit within 100 meters radius of the shop to proceed with IN entry.',
-                      style: TextStyle(
-                        color: Colors.orange.shade800,
+                      style: SparshTypography.bodyLarge.copyWith(
+                        color: SparshTheme.warningOrange,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -311,20 +310,18 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: SparshSpacing.sm),
             Text(
-              'Current distance: \\${_calculatedDistance.toStringAsFixed(2)} meters',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.red,
+              'Current distance: ${_calculatedDistance.toStringAsFixed(2)} meters',
+              style: SparshTypography.bodyMedium.copyWith(
+                color: SparshTheme.errorRed,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const Text(
+            Text(
               'Required distance: ≤ 100 meters',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.green,
+              style: SparshTypography.bodyMedium.copyWith(
+                color: SparshTheme.successGreen,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -333,13 +330,7 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'OK, I Understand',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
+            child: Text('OK, I Understand', style: SparshTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -352,21 +343,20 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
         ),
-        title: const Row(
+        title: Row(
           children: [
             Icon(
               Icons.info_outline,
-              color: Colors.blue,
-              size: 28,
+              color: SparshTheme.primaryBlue,
+              size: SparshSpacing.lg,
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: SparshSpacing.sm),
             Text(
               'Exception Entry',
-              style: TextStyle(
+              style: SparshTypography.heading5.copyWith(
                 fontWeight: FontWeight.bold,
-                fontSize: 18,
               ),
             ),
           ],
@@ -376,33 +366,32 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'You are currently \\${_calculatedDistance.toStringAsFixed(2)} meters away from the customer location.',
-              style: const TextStyle(
-                fontSize: 16,
+              'You are currently ${_calculatedDistance.toStringAsFixed(2)} meters away from the customer location.',
+              style: SparshTypography.bodyLarge.copyWith(
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: SparshSpacing.sm),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(SparshSpacing.md),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                color: SparshTheme.primaryBlue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(SparshBorderRadius.lg),
+                border: Border.all(color: SparshTheme.primaryBlue.withOpacity(0.3)),
               ),
               child: Row(
                 children: [
                   const Icon(
                     Icons.navigation,
-                    color: Colors.blue,
-                    size: 20,
+                    color: SparshTheme.primaryBlue,
+                    size: SparshSpacing.lg,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: SparshSpacing.sm),
                   Expanded(
                     child: Text(
                       'Since you are outside the 100-meter radius, you will be redirected to the DSR Visit Screen for exception entry.',
-                      style: TextStyle(
-                        color: Colors.blue.shade800,
+                      style: SparshTypography.bodyLarge.copyWith(
+                        color: SparshTheme.primaryBlue,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -410,20 +399,18 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: SparshSpacing.sm),
             Text(
-              'Current distance: \\${_calculatedDistance.toStringAsFixed(2)} meters',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.red,
+              'Current distance: ${_calculatedDistance.toStringAsFixed(2)} meters',
+              style: SparshTypography.bodyMedium.copyWith(
+                color: SparshTheme.errorRed,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const Text(
+            Text(
               'Required distance: ≤ 100 meters',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.green,
+              style: SparshTypography.bodyMedium.copyWith(
+                color: SparshTheme.successGreen,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -432,13 +419,7 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 16,
-              ),
-            ),
+            child: Text('OK, I Understand', style: SparshTypography.bodyLarge.copyWith(fontWeight: FontWeight.w500)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -451,19 +432,13 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: SparshTheme.primaryBlue,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(SparshBorderRadius.lg),
               ),
             ),
-            child: const Text(
-              'Proceed to DSR Visit',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
+            child: Text('OK, I Understand', style: SparshTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -499,16 +474,15 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
       color: _cardColor,
       elevation: 2,
       margin: const EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.xl)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(SparshSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(title,
-                style: TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold, color: _textColor)),
-            const SizedBox(height: 12),
+                style: SparshTypography.heading5.copyWith(color: _textColor)),
+            const SizedBox(height: SparshSpacing.md),
             child,
           ],
         ),
@@ -524,7 +498,7 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
       labelStyle: TextStyle(color: _textColor.withOpacity(0.7)),
       filled: true,
       fillColor: _cardColor,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.lg), borderSide: BorderSide.none),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
   }
@@ -532,14 +506,14 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
   Widget _buildElevatedButton(
       {required IconData icon, required String label, required VoidCallback onPressed}) {
     return ElevatedButton.icon(
-      icon: Icon(icon, size: 20),
+      icon: Icon(icon, size: SparshSpacing.lg),
       label: Text(label),
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         backgroundColor: _secondaryColor,
         foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.lg)),
+        padding: const EdgeInsets.symmetric(vertical: SparshSpacing.md),
       ),
     );
   }
@@ -551,10 +525,10 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.lg)),
+        padding: const EdgeInsets.symmetric(vertical: SparshSpacing.lg),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      child: Text(label, style: SparshTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold)),
     );
   }
 
@@ -564,8 +538,8 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('Document ${idx + 1}',
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
+            style: SparshTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: SparshSpacing.sm),
         Row(
           children: [
             ElevatedButton.icon(
@@ -576,7 +550,7 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                 if (img != null) setState(() => _selectedImages[idx] = img);
               },
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: SparshSpacing.sm),
             if (file != null)
               ElevatedButton.icon(
                 icon: const Icon(Icons.visibility),
@@ -586,12 +560,12 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
             const Spacer(),
             if (_selectedImages.length > 1 && idx == _selectedImages.length - 1)
               IconButton(
-                icon: const Icon(Icons.remove_circle, color: Colors.red),
+                icon: const Icon(Icons.remove_circle, color: SparshTheme.errorRed),
                 onPressed: () => setState(() => _selectedImages.removeLast()),
               ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: SparshSpacing.sm),
       ],
     );
   }
@@ -717,10 +691,10 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('DSR Retailer IN OUT',
-                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            Text('DSR Retailer IN OUT',
+                style: SparshTypography.heading5.copyWith(color: Colors.white)),
             Text('Daily Sales Report Entry',
-                style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14)),
+                style: SparshTypography.body.copyWith(color: Colors.white70)),
           ],
         ),
         actions: [
@@ -730,14 +704,14 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
               SnackBar(
                 content: const Text('Help information for DSR Retailer IN OUT'),
                 behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.md)),
               ),
             ),
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(SparshSpacing.lg),
         child: FadeTransition(
           opacity: _fadeAnimation,
           child: Form(
@@ -834,7 +808,7 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                     readOnly: true,
                     decoration: _inputDecoration(hintText: 'Select Date').copyWith(
                       suffixIcon: IconButton(
-                        icon: const Icon(Icons.calendar_today, color: Colors.white),
+                        icon: const Icon(Icons.calendar_today, color: SparshTheme.primaryBlueAccent),
                         onPressed: _pickDate,
                       ),
                     ),
@@ -851,7 +825,7 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                         readOnly: true,
                         decoration: _inputDecoration(labelText: 'Latitude'),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: SparshSpacing.sm),
                       TextFormField(
                         controller: _yourLongitudeController,
                         readOnly: true,
@@ -870,7 +844,7 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                         readOnly: true,
                         decoration: _inputDecoration(labelText: 'Latitude'),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: SparshSpacing.sm),
                       TextFormField(
                         controller: _custLongitudeController,
                         readOnly: true,
@@ -882,37 +856,37 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                 _buildCard(
                   title: 'Distance',
                   child: Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(SparshSpacing.lg),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: _calculatedDistance > 0 
                           ? (_calculatedDistance > 101 
-                            ? [Colors.red.withOpacity(0.08), Colors.red.withOpacity(0.03)]
-                            : [Colors.green.withOpacity(0.08), Colors.green.withOpacity(0.03)])
-                          : [Colors.grey.withOpacity(0.08), Colors.grey.withOpacity(0.03)],
+                            ? [SparshTheme.errorRed.withOpacity(0.08), SparshTheme.errorRed.withOpacity(0.03)]
+                            : [SparshTheme.successGreen.withOpacity(0.08), SparshTheme.successGreen.withOpacity(0.03)])
+                          : [SparshTheme.textTertiary.withOpacity(0.08), SparshTheme.textTertiary.withOpacity(0.03)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
                       border: Border.all(
                         color: _calculatedDistance > 0 
-                          ? (_calculatedDistance > 101 ? Colors.red.withOpacity(0.2) : Colors.green.withOpacity(0.2))
-                          : Colors.grey.withOpacity(0.2),
+                          ? (_calculatedDistance > 101 ? SparshTheme.errorRed.withOpacity(0.2) : SparshTheme.successGreen.withOpacity(0.2))
+                          : SparshTheme.textTertiary.withOpacity(0.2),
                         width: 2,
                       ),
                       boxShadow: [
                         BoxShadow(
                           color: (_calculatedDistance > 0 
-                            ? (_calculatedDistance > 101 ? Colors.red : Colors.green)
-                            : Colors.grey).withOpacity(0.08),
+                            ? (_calculatedDistance > 101 ? SparshTheme.errorRed : SparshTheme.successGreen)
+                            : SparshTheme.textTertiary).withOpacity(0.08),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                           spreadRadius: 0,
                         ),
                         BoxShadow(
                           color: (_calculatedDistance > 0 
-                            ? (_calculatedDistance > 101 ? Colors.red : Colors.green)
-                            : Colors.grey).withOpacity(0.04),
+                            ? (_calculatedDistance > 101 ? SparshTheme.errorRed : SparshTheme.successGreen)
+                            : SparshTheme.textTertiary).withOpacity(0.04),
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                           spreadRadius: 0,
@@ -926,7 +900,7 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                           Align(
                             alignment: Alignment.centerRight,
                             child: IconButton(
-                              icon: const Icon(Icons.calculate, color: Colors.blue, size: 20),
+                              icon: const Icon(Icons.calculate, color: SparshTheme.primaryBlueAccent, size: SparshSpacing.lg),
                               onPressed: _calculateDistance,
                               tooltip: 'Calculate distance manually',
                             ),
@@ -934,23 +908,23 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(SparshSpacing.md),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: _calculatedDistance > 0 
                                     ? (_calculatedDistance > 101 
-                                      ? [Colors.red.withOpacity(0.1), Colors.red.withOpacity(0.05)]
-                                      : [Colors.green.withOpacity(0.1), Colors.green.withOpacity(0.05)])
-                                    : [Colors.grey.withOpacity(0.1), Colors.grey.withOpacity(0.05)],
+                                      ? [SparshTheme.errorRed.withOpacity(0.1), SparshTheme.errorRed.withOpacity(0.05)]
+                                      : [SparshTheme.successGreen.withOpacity(0.1), SparshTheme.successGreen.withOpacity(0.05)])
+                                    : [SparshTheme.textTertiary.withOpacity(0.1), SparshTheme.textTertiary.withOpacity(0.05)],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(SparshBorderRadius.lg),
                                 boxShadow: [
                                   BoxShadow(
                                     color: (_calculatedDistance > 0 
-                                      ? (_calculatedDistance > 101 ? Colors.red : Colors.green)
-                                      : Colors.grey).withOpacity(0.2),
+                                      ? (_calculatedDistance > 101 ? SparshTheme.errorRed : SparshTheme.successGreen)
+                                      : SparshTheme.textTertiary).withOpacity(0.2),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   ),
@@ -959,12 +933,12 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                               child: Icon(
                                 Icons.straighten,
                                 color: _calculatedDistance > 0 
-                                  ? (_calculatedDistance > 101 ? Colors.red : Colors.green)
-                                  : Colors.grey,
-                                size: 26,
+                                  ? (_calculatedDistance > 101 ? SparshTheme.errorRed : SparshTheme.successGreen)
+                                  : SparshTheme.textTertiary,
+                                size: SparshSpacing.xl,
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: SparshSpacing.md),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -973,11 +947,10 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                                     _calculatedDistance > 0 
                                       ? '${_calculatedDistance.toStringAsFixed(2)} meters'
                                       : 'Not calculated',
-                                    style: TextStyle(
+                                    style: SparshTypography.heading3.copyWith(
                                       color: _calculatedDistance > 0 
-                                        ? (_calculatedDistance > 101 ? Colors.red : Colors.green)
-                                        : Colors.grey,
-                                      fontSize: 22,
+                                        ? (_calculatedDistance > 101 ? SparshTheme.errorRed : SparshTheme.successGreen)
+                                        : SparshTheme.textTertiary,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 0.8,
                                       height: 1.2,
@@ -985,19 +958,19 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                                   ),
                                   if (_calculatedDistance > 0)
                                     Container(
-                                      margin: const EdgeInsets.only(top: 6),
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      margin: const EdgeInsets.only(top: SparshSpacing.sm),
+                                      padding: const EdgeInsets.symmetric(horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
                                           colors: (_calculatedDistance > 101 
-                                            ? [Colors.red.withOpacity(0.1), Colors.red.withOpacity(0.05)]
-                                            : [Colors.green.withOpacity(0.1), Colors.green.withOpacity(0.05)]),
+                                            ? [SparshTheme.errorRed.withOpacity(0.1), SparshTheme.errorRed.withOpacity(0.05)]
+                                            : [SparshTheme.successGreen.withOpacity(0.1), SparshTheme.successGreen.withOpacity(0.05)]),
                                           begin: Alignment.centerLeft,
                                           end: Alignment.centerRight,
                                         ),
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(SparshBorderRadius.lg),
                                         border: Border.all(
-                                          color: (_calculatedDistance > 101 ? Colors.red : Colors.green).withOpacity(0.2),
+                                          color: (_calculatedDistance > 101 ? SparshTheme.errorRed : SparshTheme.successGreen).withOpacity(0.2),
                                           width: 1,
                                         ),
                                       ),
@@ -1005,9 +978,8 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                                         _calculatedDistance > 101 
                                           ? 'Distance exceeds 101m limit'
                                           : 'Within acceptable range',
-                                        style: TextStyle(
-                                          color: _calculatedDistance > 101 ? Colors.red : Colors.green,
-                                          fontSize: 13,
+                                        style: SparshTypography.bodySmall.copyWith(
+                                          color: _calculatedDistance > 101 ? SparshTheme.errorRed : SparshTheme.successGreen,
                                           fontWeight: FontWeight.w700,
                                           letterSpacing: 0.3,
                                         ),
@@ -1015,25 +987,24 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                                     ),
                                   if (_calculatedDistance == 0)
                                     Container(
-                                      margin: const EdgeInsets.only(top: 6),
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      margin: const EdgeInsets.only(top: SparshSpacing.sm),
+                                      padding: const EdgeInsets.symmetric(horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
-                                          colors: [Colors.grey.withOpacity(0.1), Colors.grey.withOpacity(0.05)],
+                                          colors: [SparshTheme.textTertiary.withOpacity(0.1), SparshTheme.textTertiary.withOpacity(0.05)],
                                           begin: Alignment.centerLeft,
                                           end: Alignment.centerRight,
                                         ),
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(SparshBorderRadius.lg),
                                         border: Border.all(
-                                          color: Colors.grey.withOpacity(0.2),
+                                          color: SparshTheme.textTertiary.withOpacity(0.2),
                                           width: 1,
                                         ),
                                       ),
-                                      child: const Text(
-                                        'Capture both locations to calculate',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 13,
+                                      child: Text(
+                                        'Required distance: ≤ 100 meters',
+                                        style: SparshTypography.bodyMedium.copyWith(
+                                          color: SparshTheme.textTertiary,
                                           fontWeight: FontWeight.w600,
                                           letterSpacing: 0.3,
                                         ),
@@ -1048,48 +1019,48 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: SparshSpacing.xl),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.login, size: 24),
-                    label: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10.0),
+                    icon: const Icon(Icons.login, size: SparshSpacing.lg),
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: SparshSpacing.md),
                       child: Text(
                         'IN',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: SparshTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
                     onPressed: () => _onSubmit('IN'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _primaryColor,
+                      backgroundColor: SparshTheme.primaryBlueAccent,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(SparshBorderRadius.lg),
                       ),
                       elevation: 6,
                       padding: const EdgeInsets.symmetric(vertical: 0),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: SparshSpacing.sm),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.error_outline, size: 24),
-                    label: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10.0),
+                    icon: const Icon(Icons.error_outline, size: SparshSpacing.lg),
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: SparshSpacing.md),
                       child: Text(
                         'Exception Entry',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: SparshTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
                     onPressed: () => _onSubmit('Exception'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
+                      backgroundColor: SparshTheme.warningOrange,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(SparshBorderRadius.lg),
                       ),
                       elevation: 6,
                       padding: const EdgeInsets.symmetric(vertical: 0),

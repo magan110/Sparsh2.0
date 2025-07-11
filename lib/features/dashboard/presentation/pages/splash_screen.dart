@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 import 'package:learning2/features/authentication/presentation/pages/login_screen.dart';
 import 'home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -224,8 +225,8 @@ class _SplashScreenState extends State<SplashScreen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.blue.shade900.withOpacity(0.85),
-                    Colors.blue.shade700.withOpacity(0.85),
+                    SparshTheme.primaryBlue.withOpacity(0.85),
+                    SparshTheme.primaryBlueLight.withOpacity(0.85),
                     Colors.cyan.shade400.withOpacity(0.85),
                   ],
                 ),
