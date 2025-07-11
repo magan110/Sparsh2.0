@@ -139,6 +139,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void _navigateToHome() {
+    OnboardingManager.completeOnboarding();
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),

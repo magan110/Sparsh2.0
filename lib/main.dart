@@ -42,11 +42,15 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ThemeAwareApp(
-      themeManager: themeManager,
-      child: OnboardingManager.isFirstLaunch 
-          ? const OnboardingScreen()
-          : const HomeScreen(),
+    return Consumer<ThemeManager>(
+      builder: (context, themeManager, child) {
+        return ThemeAwareApp(
+          themeManager: themeManager,
+          child: OnboardingManager.isFirstLaunch 
+              ? const OnboardingScreen()
+              : const HomeScreen(),
+        );
+      },
     );
   }
 }

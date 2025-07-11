@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:learning2/features/dashboard/presentation/pages/notification_screen.dart';
-import 'package:learning2/features/dashboard/presentation/pages/profile_screen.dart';
+import 'package:learning2/features/dashboard/presentation/pages/enhanced_profile_screen.dart';
 import 'package:learning2/features/dashboard/presentation/pages/dashboard_screen.dart';
 import 'package:learning2/features/dashboard/presentation/pages/schema.dart';
 import 'package:learning2/features/dashboard/presentation/pages/token_scan.dart';
@@ -23,8 +23,10 @@ import 'universal_outlet_registration_page.dart';
 import 'mail_screen.dart';
 import 'package:learning2/core/constants/fonts.dart';
 import 'package:learning2/core/theme/app_theme.dart';
+import 'package:learning2/core/theme/theme_manager.dart';
 import 'package:learning2/core/animations/animation_library.dart';
 import 'package:learning2/core/animations/advanced_ui_components.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -49,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
     const HomeContent(),
     const DashboardScreen(),
     const MailScreen(),
-    const ProfilePage(),
+    const EnhancedProfilePage(),
   ];
 
   // The currently displayed screen:
@@ -376,10 +378,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           // "Scheme" tab: directly open Schema() screen
                           _updateCurrentScreen(index, screen: const Schema());
                         } else if (index == 4) {
-                          // "Profile" tab:
+                          // "Profile" tab: pass theme manager to enhanced profile
+                          final themeManager = context.read<ThemeManager>();
                           _updateCurrentScreen(
                             index,
-                            screen: const ProfilePage(),
+                            screen: EnhancedProfilePage(themeManager: themeManager),
                           );
                         } else {
                           _updateCurrentScreen(index);
