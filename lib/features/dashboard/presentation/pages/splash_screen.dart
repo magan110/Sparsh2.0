@@ -4,6 +4,8 @@ import 'package:learning2/core/theme/app_theme.dart';
 import 'package:learning2/features/authentication/presentation/pages/login_screen.dart';
 import 'home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:learning2/core/components/advanced_3d/advanced_3d_components.dart';
+import 'package:learning2/core/utils/responsive_design.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,7 +15,7 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   bool _showLogin = false;
   late AnimationController _animationController;
   late Animation<Offset> _slideAnimation;
