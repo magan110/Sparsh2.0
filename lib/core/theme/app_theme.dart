@@ -146,6 +146,8 @@ class SparshTheme {
       primarySwatch: Colors.blue,
       primaryColor: primaryBlue,
       scaffoldBackgroundColor: scaffoldBackground,
+      
+      // Enhanced Material 3 Color Scheme
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryBlue,
         primary: primaryBlue,
@@ -153,6 +155,20 @@ class SparshTheme {
         surface: Colors.white,
         background: scaffoldBackground,
         brightness: Brightness.light,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: textPrimary,
+        onBackground: textPrimary,
+        surfaceVariant: lightBlueBackground,
+        onSurfaceVariant: textSecondary,
+        outline: borderGrey,
+        outlineVariant: borderLightGrey,
+        inverseSurface: textPrimary,
+        onInverseSurface: Colors.white,
+        inversePrimary: primaryBlueLight,
+        shadow: Colors.black,
+        scrim: Colors.black,
+        surfaceTint: primaryBlue,
       ),
       
       // App Bar Theme - Modern and Clean
@@ -458,28 +474,229 @@ class SparshTheme {
     );
   }
   
-  // Dark Theme - Modern Dark Mode
+  // Dark Theme - Enhanced Material 3 Dark Mode
   static ThemeData get darkTheme {
-    return ThemeData.dark().copyWith(
+    return ThemeData(
       useMaterial3: true,
       primaryColor: primaryBlue,
       scaffoldBackgroundColor: const Color(0xFF0F172A),
-      colorScheme: ColorScheme.dark(
+      
+      // Enhanced Material 3 Dark Color Scheme
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primaryBlue,
         primary: primaryBlue,
         secondary: primaryBlueAccent,
         surface: const Color(0xFF1E293B),
         background: const Color(0xFF0F172A),
         brightness: Brightness.dark,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: Colors.white,
+        onBackground: Colors.white,
+        surfaceVariant: const Color(0xFF334155),
+        onSurfaceVariant: const Color(0xFFCBD5E1),
+        outline: const Color(0xFF475569),
+        outlineVariant: const Color(0xFF334155),
+        inverseSurface: Colors.white,
+        onInverseSurface: const Color(0xFF0F172A),
+        inversePrimary: const Color(0xFF0F172A),
+        shadow: Colors.black,
+        scrim: Colors.black,
+        surfaceTint: primaryBlue,
       ),
+      
+      // Enhanced Material 3 components
+      appBarTheme: const AppBarTheme(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        centerTitle: true,
+        titleTextStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
+        iconTheme: IconThemeData(color: Colors.white, size: 24),
+        actionsIconTheme: IconThemeData(color: Colors.white, size: 24),
+      ),
+      
+      // Enhanced text theme for dark mode
+      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
+        displayLarge: const TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          letterSpacing: -0.5,
+        ),
+        displayMedium: const TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+          letterSpacing: -0.25,
+        ),
+        displaySmall: const TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+          letterSpacing: 0,
+        ),
+        headlineLarge: const TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+          letterSpacing: 0,
+        ),
+        headlineMedium: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+          letterSpacing: 0.15,
+        ),
+        headlineSmall: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+          letterSpacing: 0.15,
+        ),
+        titleLarge: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+          letterSpacing: 0.15,
+        ),
+        titleMedium: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+          letterSpacing: 0.1,
+        ),
+        titleSmall: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+          letterSpacing: 0.1,
+        ),
+        bodyLarge: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+          color: Colors.white,
+          letterSpacing: 0.5,
+        ),
+        bodyMedium: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: Colors.white,
+          letterSpacing: 0.25,
+        ),
+        bodySmall: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: Color(0xFFCBD5E1),
+          letterSpacing: 0.4,
+        ),
+        labelLarge: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+          letterSpacing: 0.1,
+        ),
+        labelMedium: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+          letterSpacing: 0.5,
+        ),
+        labelSmall: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: Color(0xFFCBD5E1),
+          letterSpacing: 0.5,
+        ),
+      ),
+      
+      // Enhanced card theme for dark mode
       cardTheme: const CardThemeData(
-        elevation: 2,
+        elevation: 8,
         shadowColor: Color(0x4D000000),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
         color: Color(0xFF1E293B),
+        surfaceTintColor: Color(0xFF334155),
       ),
+      
+      // Enhanced input decoration for dark mode
+      inputDecorationTheme: InputDecorationTheme(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF475569), width: 1.5),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF475569), width: 1.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: primaryBlue, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: errorRed, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: errorRed, width: 2),
+        ),
+        filled: true,
+        fillColor: const Color(0xFF1E293B),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        hintStyle: const TextStyle(
+          color: Color(0xFF94A3B8),
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
+        labelStyle: const TextStyle(
+          color: Color(0xFFCBD5E1),
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+        floatingLabelStyle: const TextStyle(
+          color: primaryBlue,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      
+      // Enhanced visual density
+      visualDensity: VisualDensity.adaptivePlatformDensity,
     );
+  }
+  
+  /// Get theme based on dynamic color support
+  static ThemeData getTheme({
+    required Brightness brightness,
+    Color? dynamicColor,
+  }) {
+    if (dynamicColor != null) {
+      return brightness == Brightness.light
+          ? ThemeData.from(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: dynamicColor,
+                brightness: brightness,
+              ),
+              useMaterial3: true,
+            )
+          : ThemeData.from(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: dynamicColor,
+                brightness: brightness,
+              ),
+              useMaterial3: true,
+            );
+    }
+    
+    return brightness == Brightness.light ? lightTheme : darkTheme;
   }
 }
 
