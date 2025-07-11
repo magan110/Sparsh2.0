@@ -8,9 +8,12 @@ import 'package:http/io_client.dart';
 import 'package:learning2/features/worker/presentation/pages/Worker_Home_Screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:learning2/features/dashboard/presentation/pages/home_screen.dart';
-// Import your worker screen here
 import 'log_in_otp.dart';
 import 'package:learning2/core/constants/fonts.dart';
+import 'package:learning2/core/components/advanced_3d/advanced_3d_components.dart';
+import 'package:learning2/core/utils/responsive_design.dart';
+import 'package:learning2/core/utils/form_validators/form_validators.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool fromSplash;
@@ -22,7 +25,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final String apiUrl = "https://192.168.55.182:7023/api/Auth/login";
@@ -53,27 +56,18 @@ class _LoginScreenState extends State<LoginScreen>
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animController,
-        curve: const Interval(0.2, 0.8, curve: Curves.easeIn),
-      ),
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
     );
 
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.5),
       end: Offset.zero,
     ).animate(
-      CurvedAnimation(
-        parent: _animController,
-        curve: const Interval(0.2, 0.7, curve: Curves.easeOutCubic),
-      ),
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
     );
 
     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animController,
-        curve: const Interval(0.2, 0.8, curve: Curves.easeOut),
-      ),
+      CurvedAnimation(parent: _animController, curve: Curves.elasticOut),
     );
 
     _animController.forward();
@@ -175,14 +169,23 @@ class _LoginScreenState extends State<LoginScreen>
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-        title: const Text('Error', style: TextStyle(color: Colors.red)),
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.error, color: Colors.red),
+            const SizedBox(width: 8),
+            Text('Error', style: TextStyle(color: Colors.red)),
+          ],
+        ),
         content: Text(message),
         actions: [
-          TextButton(
+          Advanced3DButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK', style: TextStyle(color: Colors.blue)),
+            backgroundColor: SparshTheme.primaryBlue,
+            foregroundColor: Colors.white,
+            padding: ResponsiveSpacing.symmetric(context, horizontal: 16, vertical: 8),
+            borderRadius: 8,
+            child: Text('OK'),
           ),
         ],
         shape: RoundedRectangleBorder(
@@ -202,131 +205,81 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.blue.shade900,
-              Colors.blue.shade800,
-              Colors.blue.shade700,
-            ],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // Background design elements
-            Positioned(
-              top: -50,
-              right: -50,
+      backgroundColor: SparshTheme.scaffoldBackground,
+      body: AnimatedBuilder(
+        animation: _animController,
+        builder: (context, child) {
+          return Transform.translate(
+            offset: Offset(0, _slideAnimation.value.dy * 50),
+            child: Opacity(
+              opacity: _fadeAnimation.value,
               child: Container(
-                width: 150,
-                height: 150,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -80,
-              left: -80,
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-
-            // Main content with animations
-            AnimatedBuilder(
-              animation: _animController,
-              builder: (context, child) {
-                return SlideTransition(
-                  position: _slideAnimation,
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: ScaleTransition(
-                      scale: _scaleAnimation,
-                      child: child,
-                    ),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      SparshTheme.primaryBlue,
+                      SparshTheme.primaryBlue.withOpacity(0.8),
+                      SparshTheme.primaryBlue.withOpacity(0.6),
+                    ],
                   ),
-                );
-              },
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // App Logo/Icon
-                      Container(
-                        width: 250,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 15,
-                              spreadRadius: 5,
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        child: Image.asset(
-                          'assets/logo.png',
-                          fit: BoxFit.fill,
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-
-                      // App Name
-                      ShaderMask(
-                        shaderCallback:
-                            (bounds) => LinearGradient(
-                          colors: [
-                            Colors.white,
-                            Colors.white.withOpacity(0.8),
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ).createShader(bounds),
-                        child: Text(
-                          'SPARSH',
-                          style: Fonts.bodyBold.copyWith(
-                            fontSize: 36,
-                            color: Colors.white,
-                            letterSpacing: 4,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-
-                      // Login Card
-                      Card(
-                        elevation: 10,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(30),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(25),
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Colors.white, Colors.grey.shade50],
+                ),
+                child: SafeArea(
+                  child: SingleChildScrollView(
+                    padding: ResponsiveSpacing.all(context, 24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 40),
+                        // App Logo
+                        Transform.scale(
+                          scale: _scaleAnimation.value,
+                          child: Advanced3DCard(
+                            width: 250,
+                            height: 100,
+                            borderRadius: 20,
+                            enableGlassMorphism: true,
+                            backgroundColor: Colors.white,
+                            padding: ResponsiveSpacing.all(context, 8),
+                            child: Image.asset(
+                              'assets/logo.png',
+                              fit: BoxFit.contain,
                             ),
                           ),
+                        ),
+                        const SizedBox(height: 30),
+
+                        // App Name
+                        ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [
+                              Colors.white,
+                              Colors.white70,
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ).createShader(bounds),
+                          child: Text(
+                            'SPARSH',
+                            style: TextStyle(
+                              fontSize: ResponsiveTypography.headingLarge(context),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 4,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+
+                        // Login Card
+                        Advanced3DCard(
+                          width: ResponsiveUtil.getScreenWidth(context),
+                          padding: ResponsiveSpacing.all(context, 30),
+                          borderRadius: 25,
+                          enableGlassMorphism: true,
+                          backgroundColor: SparshTheme.cardBackground,
                           child: Form(
                             key: _formKey,
                             child: Column(
@@ -334,158 +287,95 @@ class _LoginScreenState extends State<LoginScreen>
                               children: [
                                 Text(
                                   'Welcome Back',
-                                  style: Fonts.bodyBold.copyWith(
-                                    fontSize: 26,
-                                    color: Colors.blue.shade800,
+                                  style: TextStyle(
+                                    fontSize: ResponsiveTypography.headingMedium(context),
+                                    fontWeight: FontWeight.bold,
+                                    color: SparshTheme.primaryBlue,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   'Sign in to continue',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    color: Colors.grey.shade600,
+                                  style: TextStyle(
+                                    fontSize: ResponsiveTypography.bodyText1(context),
+                                    color: SparshTheme.textSecondary,
                                   ),
                                 ),
                                 const SizedBox(height: 30),
 
                                 // Username Field
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade50,
-                                    borderRadius: BorderRadius.circular(15),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.grey.shade200,
-                                        blurRadius: 10,
-                                        spreadRadius: 2,
-                                      ),
-                                    ],
+                                Advanced3DTextField(
+                                  controller: _usernameController,
+                                  hintText: 'Username',
+                                  prefixIcon: Icon(
+                                    Icons.person_outline,
+                                    color: SparshTheme.primaryBlue,
                                   ),
-                                  child: TextFormField(
-                                    controller: _usernameController,
-                                    decoration: InputDecoration(
-                                      hintText: 'Username',
-                                      hintStyle: TextStyle(
-                                        color: Colors.grey.shade400,
-                                      ),
-                                      prefixIcon: Icon(
-                                        Icons.person_outline,
-                                        color: Colors.blue.shade700,
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(15),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                      filled: true,
-                                      fillColor: Colors.grey.shade50,
-                                      contentPadding:
-                                      const EdgeInsets.symmetric(
-                                        vertical: 16,
-                                        horizontal: 20,
-                                      ),
+                                  borderRadius: 15,
+                                  backgroundColor: SparshTheme.cardBackground,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter your username';
+                                    }
+                                    return null;
+                                  },
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.deny(
+                                      RegExp(r'\s'),
                                     ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty) {
-                                        return 'Please enter your username';
-                                      }
-                                      return null;
-                                    },
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.deny(
-                                        RegExp(r'\s'),
-                                      ),
-                                    ],
-                                  ),
+                                  ],
                                 ),
                                 const SizedBox(height: 20),
 
                                 // Password Field
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade50,
-                                    borderRadius: BorderRadius.circular(15),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.grey.shade200,
-                                        blurRadius: 10,
-                                        spreadRadius: 2,
-                                      ),
-                                    ],
+                                Advanced3DTextField(
+                                  controller: _passwordController,
+                                  hintText: 'Password',
+                                  obscureText: _obscurePassword,
+                                  prefixIcon: Icon(
+                                    Icons.lock_outline,
+                                    color: SparshTheme.primaryBlue,
                                   ),
-                                  child: TextFormField(
-                                    controller: _passwordController,
-                                    obscureText: _obscurePassword,
-                                    decoration: InputDecoration(
-                                      hintText: 'Password',
-                                      hintStyle: TextStyle(
-                                        color: Colors.grey.shade400,
-                                      ),
-                                      prefixIcon: Icon(
-                                        Icons.lock_outline,
-                                        color: Colors.blue.shade700,
-                                      ),
-                                      suffixIcon: IconButton(
-                                        icon: Icon(
-                                          _obscurePassword
-                                              ? Icons.visibility_outlined
-                                              : Icons.visibility_off_outlined,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                        onPressed: () {
-                                          setState(() {
-                                            _obscurePassword =
-                                            !_obscurePassword;
-                                          });
-                                        },
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(15),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                      filled: true,
-                                      fillColor: Colors.grey.shade50,
-                                      contentPadding:
-                                      const EdgeInsets.symmetric(
-                                        vertical: 16,
-                                        horizontal: 20,
-                                      ),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                      color: SparshTheme.textSecondary,
                                     ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty) {
-                                        return 'Please enter your password';
-                                      }
-                                      if (value.length < 6) {
-                                        return 'Password must be at least 6 characters';
-                                      }
-                                      return null;
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscurePassword = !_obscurePassword;
+                                      });
                                     },
                                   ),
+                                  borderRadius: 15,
+                                  backgroundColor: SparshTheme.cardBackground,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter your password';
+                                    }
+                                    if (value.length < 6) {
+                                      return 'Password must be at least 6 characters';
+                                    }
+                                    return null;
+                                  },
                                 ),
                                 const SizedBox(height: 15),
 
-                                // Remember me checkbox and Forgot Password
+                                // Forgot Password
                                 Row(
-                                  mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     TextButton(
                                       onPressed: () {
-                                        // Forgot password functionality
+                                        // TODO: Implement forgot password
                                       },
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                        ),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                      ),
                                       child: Text(
                                         'Forgot Password?',
-                                        style: Fonts.body.copyWith(
-                                          fontSize: 14,
-                                          color: Colors.blue.shade700,
+                                        style: TextStyle(
+                                          fontSize: ResponsiveTypography.bodyText2(context),
+                                          color: SparshTheme.primaryBlue,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -495,114 +385,89 @@ class _LoginScreenState extends State<LoginScreen>
                                 const SizedBox(height: 25),
 
                                 // Login Button
-                                Container(
-                                  width: double.infinity,
-                                  height: 55,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(30),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.blue.shade700.withAlpha(
-                                          76,
+                                Advanced3DButton(
+                                  onPressed: _isLoading ? null : loginUser,
+                                  backgroundColor: SparshTheme.primaryBlue,
+                                  foregroundColor: Colors.white,
+                                  padding: ResponsiveSpacing.symmetric(
+                                    context,
+                                    horizontal: 32,
+                                    vertical: 16,
+                                  ),
+                                  borderRadius: 30,
+                                  width: ResponsiveUtil.getScreenWidth(context),
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          'LOGIN',
+                                          style: TextStyle(
+                                            fontSize: ResponsiveTypography.bodyText1(context),
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1.2,
+                                          ),
                                         ),
-                                        blurRadius: 10,
-                                        spreadRadius: 2,
-                                      ),
-                                    ],
-                                  ),
-                                  child: ElevatedButton(
-                                    onPressed: _isLoading ? null : loginUser,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue.shade600,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(30),
-                                      ),
-                                      elevation: 0,
-                                    ),
-                                    child:
-                                    _isLoading
-                                        ? const CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    )
-                                        : const Text(
-                                      'LOGIN',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.2,
-                                      ),
-                                    ),
-                                  ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 30),
 
-                      // OTP Login Option
-                      Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 20),
-                            InkWell(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const LogInOtp(),
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 15,
-                                  horizontal: 20,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withAlpha(51),
-                                  borderRadius: BorderRadius.circular(30),
-                                  border: Border.all(
-                                    color: Colors.white.withAlpha(100),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      Icons.phone_android,
-                                      color: Colors.white,
-                                      size: 24,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      'Login with OTP',
-                                      style: Fonts.body.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 16,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
+                        // OTP Login Option
+                        Advanced3DButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const LogInOtp(),
+                              ),
+                            );
+                          },
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          foregroundColor: Colors.white,
+                          padding: ResponsiveSpacing.symmetric(
+                            context,
+                            horizontal: 20,
+                            vertical: 15,
+                          ),
+                          borderRadius: 30,
+                          width: ResponsiveUtil.getScreenWidth(context),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.phone_android,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Login with OTP',
+                                style: TextStyle(
+                                  fontSize: ResponsiveTypography.bodyText1(context),
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 40),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

@@ -3,6 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:learning2/core/components/advanced_3d/advanced_3d_components.dart';
+import 'package:learning2/core/utils/responsive_design.dart';
+import 'package:learning2/core/utils/form_validators/form_validators.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 
 /// EmployeeDashboardPage
 /// – Full‐screen blue gradient background
@@ -21,7 +25,13 @@ class EmployeeDashboardPage extends StatefulWidget {
   State<EmployeeDashboardPage> createState() => _EmployeeDashboardPageState();
 }
 
-class _EmployeeDashboardPageState extends State<EmployeeDashboardPage> {
+class _EmployeeDashboardPageState extends State<EmployeeDashboardPage>
+    with TickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _scaleAnimation;
+
   // Controllers for Start/End date fields
   final TextEditingController _startDateController = TextEditingController();
   final TextEditingController _endDateController = TextEditingController();
@@ -32,6 +42,7 @@ class _EmployeeDashboardPageState extends State<EmployeeDashboardPage> {
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
     // Default Start Date → two days ago (example)
     DateTime now = DateTime.now();
     DateTime twoDaysAgo = now.subtract(const Duration(days: 2));
@@ -41,8 +52,30 @@ class _EmployeeDashboardPageState extends State<EmployeeDashboardPage> {
     _endDateController.text = _dateFormatter.format(now);
   }
 
+  void _setupAnimations() {
+    _animController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+    );
+
+    _slideAnimation = Tween<double>(begin: 50.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.elasticOut),
+    );
+
+    _animController.forward();
+  }
+
   @override
   void dispose() {
+    _animController.dispose();
     _startDateController.dispose();
     _endDateController.dispose();
     super.dispose();
