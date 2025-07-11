@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:learning2/core/theme/app_theme.dart';
+import 'package:learning2/core/utils/responsive_util.dart';
+import 'package:learning2/presentation/widgets/advanced_3d_components.dart';
+import 'package:learning2/presentation/animations/advanced_animations.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -9,105 +12,168 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with TickerProviderStateMixin {
+  late List<Widget> _dashboardWidgets;
+  
+  @override
+  void initState() {
+    super.initState();
+    _dashboardWidgets = [
+      _buildHeader(),
+      const CreditLimitScreen(),
+      const PrimarySaleScreen(),
+      const SecondarySaleScreen(),
+      const MyNetworkScreen(),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
-    const bgColor = SparshTheme.scaffoldBackground;
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: bgColor,
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              const SizedBox(height: 24),
-              _buildHeader(),
-              const SizedBox(height: 24),
-              const CreditLimitScreen(),
-              const SizedBox(height: 16),
-              const PrimarySaleScreen(),
-              const SizedBox(height: 16),
-              const SecondarySaleScreen(),
-              const SizedBox(height: 16),
-              const MyNetworkScreen(),
-              const SizedBox(height: 30),
-            ],
+    ResponsiveUtil.init(context);
+    
+    return Scaffold(
+      backgroundColor: SparshTheme.scaffoldBackground,
+      appBar: const Advanced3DAppBar(
+        title: Text(
+          'Dashboard',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
           ),
         ),
+        enableGlassMorphism: true,
+        enable3DTransform: true,
+        gradient: SparshTheme.appBarGradient,
+      ),
+      body: SafeArea(
+        child: ResponsiveBuilder(
+          builder: (context, screenType) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: ResponsiveUtil.scaledPadding(context, all: 16),
+                child: AdvancedStaggeredAnimation(
+                  duration: const Duration(milliseconds: 400),
+                  delay: const Duration(milliseconds: 100),
+                  children: [
+                    SizedBox(height: ResponsiveUtil.scaledHeight(context, 16)),
+                    ..._dashboardWidgets.map((widget) => Padding(
+                      padding: EdgeInsets.only(
+                        bottom: ResponsiveUtil.scaledHeight(context, 20),
+                      ),
+                      child: widget,
+                    )).toList(),
+                    SizedBox(height: ResponsiveUtil.scaledHeight(context, 30)),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+      floatingActionButton: Advanced3DFloatingActionButton(
+        onPressed: () {
+          // Add refresh functionality
+        },
+        child: const Icon(Icons.refresh, color: Colors.white),
+        gradient: SparshTheme.primaryGradient,
+        enablePulse: true,
+        enableGlow: true,
       ),
     );
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18.0),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
-        decoration: BoxDecoration(
-          gradient: SparshTheme.primaryGradient,
-          borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-              BoxShadow(
-                color: SparshTheme.primaryBlue.withOpacity(0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 7),
-              ),
-            ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Dashboard',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+    return Advanced3DCard(
+      enableGlassMorphism: true,
+      enableHover: true,
+      enable3DTransform: true,
+      elevation: 12,
+      borderRadius: 24,
+      gradient: SparshTheme.primaryGradient,
+      padding: ResponsiveUtil.scaledPadding(context, all: 24),
+      margin: ResponsiveUtil.scaledPadding(context, horizontal: 4),
+      child: ResponsiveBuilder(
+        builder: (context, screenType) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Dashboard',
+                      style: GoogleFonts.poppins(
+                        fontSize: ResponsiveUtil.scaledFontSize(context, 24),
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Welcome back!',
-                    style: GoogleFonts.poppins(
-                        fontSize: 16, color: Colors.white.withOpacity(0.82)),
-                  ),
-                ],
+                    SizedBox(height: ResponsiveUtil.scaledHeight(context, 8)),
+                    Text(
+                      'Welcome back! Your performance at a glance.',
+                      style: GoogleFonts.poppins(
+                        fontSize: ResponsiveUtil.scaledFontSize(context, 16),
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Stack(
-              children: [
-                Container(
+              SizedBox(width: ResponsiveUtil.scaledWidth(context, 16)),
+              Advanced3DTransform(
+                enableAnimation: true,
+                rotationY: 0.1,
+                perspective: 0.002,
+                child: Container(
+                  width: ResponsiveUtil.scaledSize(context, 72),
+                  height: ResponsiveUtil.scaledSize(context, 72),
                   decoration: const BoxDecoration(
-                    gradient: SparshTheme.primaryGradient,
                     shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF64B5F6),
+                        Color(0xFF1976D2),
+                      ],
+                    ),
                   ),
-                  child: const CircleAvatar(
-                    radius: 32,
-                    backgroundColor: Colors.transparent,
-                    child: Icon(Icons.person_rounded, size: 40, color: Colors.white),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Icon(
+                          Icons.person_rounded,
+                          size: ResponsiveUtil.getIconSize(context, 32),
+                          color: Colors.white,
+                        ),
+                      ),
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: Colors.greenAccent.shade400,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Positioned(
-                  right: 4,
-                  bottom: 4,
-                  child: Container(
-                    width: 13, height: 13,
-                    decoration: BoxDecoration(
-                      color: Colors.greenAccent.shade400,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                  ),
-                )
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -117,51 +183,148 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 class CreditLimitScreen extends StatelessWidget {
   const CreditLimitScreen({super.key});
+  
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
-      title: "Credit Limit",
-      child: Row(
+    return Advanced3DCard(
+      enableGlassMorphism: false,
+      enableHover: true,
+      enable3DTransform: true,
+      elevation: 8,
+      borderRadius: 20,
+      backgroundColor: Colors.white,
+      padding: ResponsiveUtil.scaledPadding(context, all: 24),
+      margin: ResponsiveUtil.scaledPadding(context, horizontal: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Balance Limit", style: GoogleFonts.poppins(fontSize: 15, color: Colors.black87)),
-                const SizedBox(height: 6),
-                Text(
-                  "₹ 0",
-                  style: GoogleFonts.poppins(
-                      fontSize: 30, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+          Row(
+            children: [
+              Advanced3DTransform(
+                enableAnimation: true,
+                rotationY: 0.05,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: SparshTheme.blueAccentGradient,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.account_balance_wallet_rounded,
+                    size: ResponsiveUtil.getIconSize(context, 24),
+                    color: Colors.white,
+                  ),
                 ),
-              ],
-            ),
+              ),
+              SizedBox(width: ResponsiveUtil.scaledWidth(context, 16)),
+              Text(
+                "Credit Limit",
+                style: GoogleFonts.poppins(
+                  fontSize: ResponsiveUtil.scaledFontSize(context, 20),
+                  fontWeight: FontWeight.w600,
+                  color: SparshTheme.textPrimary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildCreditInfoRow("Credit Limit", 0),
-                _buildCreditInfoRow("Open Billing", 0),
-                _buildCreditInfoRow("Open Order", 0),
-              ],
-            ),
+          SizedBox(height: ResponsiveUtil.scaledHeight(context, 24)),
+          ResponsiveBuilder(
+            builder: (context, screenType) {
+              if (screenType == ScreenType.mobile) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBalanceSection(context),
+                    SizedBox(height: ResponsiveUtil.scaledHeight(context, 24)),
+                    _buildCreditDetailsSection(context),
+                  ],
+                );
+              } else {
+                return Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: _buildBalanceSection(context),
+                    ),
+                    SizedBox(width: ResponsiveUtil.scaledWidth(context, 24)),
+                    Expanded(
+                      flex: 3,
+                      child: _buildCreditDetailsSection(context),
+                    ),
+                  ],
+                );
+              }
+            },
           ),
         ],
       ),
     );
   }
-  static Widget _buildCreditInfoRow(String title, int value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7.0),
+  
+  Widget _buildBalanceSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Balance Limit",
+          style: GoogleFonts.poppins(
+            fontSize: ResponsiveUtil.scaledFontSize(context, 15),
+            color: SparshTheme.textSecondary,
+          ),
+        ),
+        SizedBox(height: ResponsiveUtil.scaledHeight(context, 8)),
+        Advanced3DTransform(
+          enableAnimation: true,
+          scaleX: 1.02,
+          scaleY: 1.02,
+          child: Text(
+            "₹ 0",
+            style: GoogleFonts.poppins(
+              fontSize: ResponsiveUtil.scaledFontSize(context, 32),
+              fontWeight: FontWeight.bold,
+              color: SparshTheme.primaryBlue,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildCreditDetailsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildCreditInfoRow(context, "Credit Limit", 0),
+        _buildCreditInfoRow(context, "Open Billing", 0),
+        _buildCreditInfoRow(context, "Open Order", 0),
+      ],
+    );
+  }
+  
+  Widget _buildCreditInfoRow(BuildContext context, String title, int value) {
+    return AdvancedAnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      enableHover: true,
+      enableScale: true,
+      padding: ResponsiveUtil.scaledPadding(context, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: GoogleFonts.poppins(fontSize: 14, color: Colors.blueGrey)),
-          Text("₹ $value", style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: ResponsiveUtil.scaledFontSize(context, 14),
+              color: SparshTheme.textSecondary,
+            ),
+          ),
+          Text(
+            "₹ $value",
+            style: GoogleFonts.poppins(
+              fontSize: ResponsiveUtil.scaledFontSize(context, 16),
+              fontWeight: FontWeight.w600,
+              color: SparshTheme.textPrimary,
+            ),
+          ),
         ],
       ),
     );
@@ -174,80 +337,132 @@ class PrimarySaleScreen extends StatelessWidget {
   const PrimarySaleScreen({super.key});
 
   static const List<_ProductChartData> _products = [
-    _ProductChartData('Distemper', 0.7, Colors.red), // Distemper FIRST
+    _ProductChartData('Distemper', 0.7, Colors.red),
     _ProductChartData('WCP', 0.5, Colors.purple),
     _ProductChartData('VAP', 0.3, Colors.orange),
     _ProductChartData('Primer', 0.6, Colors.green),
     _ProductChartData('Water\nProofing', 0.2, Colors.teal),
-    _ProductChartData('WC', 0.4, Colors.blue), // WC LAST
+    _ProductChartData('WC', 0.4, Colors.blue),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
-      title: "Primary Sale",
+    return Advanced3DCard(
+      enableGlassMorphism: false,
+      enableHover: true,
+      enable3DTransform: true,
+      elevation: 8,
+      borderRadius: 20,
+      backgroundColor: Colors.white,
+      padding: ResponsiveUtil.scaledPadding(context, all: 24),
+      margin: ResponsiveUtil.scaledPadding(context, horizontal: 4),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            height: 120,
-            child: ScatterChart(
-              ScatterChartData(
-                minX: 0,
-                maxX: (_products.length - 1).toDouble(),
-                minY: 0.1,
-                maxY: 0.8,
-                scatterSpots: List.generate(_products.length, (i) {
-                  final prod = _products[i];
-                  return ScatterSpot(i.toDouble(), prod.value, color: prod.color, radius: 6);
-                }),
-                gridData: const FlGridData(
-                  show: true,
-                  drawVerticalLine: true,
-                  horizontalInterval: 0.1,
-                  verticalInterval: 1,
+          Row(
+            children: [
+              Advanced3DTransform(
+                enableAnimation: true,
+                rotationY: 0.05,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: SparshTheme.orangeGradient,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.trending_up_rounded,
+                    size: ResponsiveUtil.getIconSize(context, 24),
+                    color: Colors.white,
+                  ),
                 ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 0.1,
-                      reservedSize: 32,
-                      getTitlesWidget: (value, meta) => Text(
-                        value.toStringAsFixed(1),
-                        style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade600),
+              ),
+              SizedBox(width: ResponsiveUtil.scaledWidth(context, 16)),
+              Text(
+                "Primary Sale",
+                style: GoogleFonts.poppins(
+                  fontSize: ResponsiveUtil.scaledFontSize(context, 20),
+                  fontWeight: FontWeight.w600,
+                  color: SparshTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: ResponsiveUtil.scaledHeight(context, 24)),
+          GlassMorphismContainer(
+            borderRadius: 16,
+            blurStrength: 5,
+            opacity: 0.05,
+            child: SizedBox(
+              height: ResponsiveUtil.scaledHeight(context, 140),
+              child: ScatterChart(
+                ScatterChartData(
+                  minX: 0,
+                  maxX: (_products.length - 1).toDouble(),
+                  minY: 0.1,
+                  maxY: 0.8,
+                  scatterSpots: List.generate(_products.length, (i) {
+                    final prod = _products[i];
+                    return ScatterSpot(i.toDouble(), prod.value, color: prod.color, radius: 6);
+                  }),
+                  gridData: const FlGridData(
+                    show: true,
+                    drawVerticalLine: true,
+                    horizontalInterval: 0.1,
+                    verticalInterval: 1,
+                  ),
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: 0.1,
+                        reservedSize: 32,
+                        getTitlesWidget: (value, meta) => Text(
+                          value.toStringAsFixed(1),
+                          style: GoogleFonts.poppins(
+                            fontSize: ResponsiveUtil.scaledFontSize(context, 10),
+                            color: SparshTheme.textSecondary,
+                          ),
+                        ),
                       ),
                     ),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   ),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                ),
-                borderData: FlBorderData(show: false),
-                scatterTouchData: ScatterTouchData(
-                  enabled: true,
-                  touchTooltipData: ScatterTouchTooltipData(
-                    tooltipBgColor: Colors.black87,
-                    getTooltipItems: (spot) {
-                      final prod = _products[spot.x.toInt()];
-                      return ScatterTooltipItem(
-                        "${prod.name.replaceAll('\n', ' ')}: ${prod.value.toStringAsFixed(3)}",
-                        textStyle: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      );
-                    },
+                  borderData: FlBorderData(show: false),
+                  scatterTouchData: ScatterTouchData(
+                    enabled: true,
+                    touchTooltipData: ScatterTouchTooltipData(
+                      tooltipBgColor: SparshTheme.textPrimary,
+                      getTooltipItems: (spot) {
+                        final prod = _products[spot.x.toInt()];
+                        return ScatterTooltipItem(
+                          "${prod.name.replaceAll('\n', ' ')}: ${prod.value.toStringAsFixed(3)}",
+                          textStyle: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          Wrap(
+          SizedBox(height: ResponsiveUtil.scaledHeight(context, 16)),
+          ResponsiveGrid(
+            mobileColumns: 2,
+            tabletColumns: 3,
+            desktopColumns: 6,
             spacing: 8,
-            runSpacing: 4,
+            runSpacing: 8,
             children: _products.map((prod) {
-              return Container(
+              return AdvancedAnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                enableHover: true,
+                enableScale: true,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: prod.color.withOpacity(0.1),
@@ -257,10 +472,11 @@ class PrimarySaleScreen extends StatelessWidget {
                 child: Text(
                   prod.name.replaceAll('\n', ' '),
                   style: GoogleFonts.poppins(
-                    fontSize: 11,
+                    fontSize: ResponsiveUtil.scaledFontSize(context, 11),
                     fontWeight: FontWeight.w500,
                     color: prod.color,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               );
             }).toList(),
@@ -277,105 +493,165 @@ class SecondarySaleScreen extends StatelessWidget {
   const SecondarySaleScreen({super.key});
 
   static const List<_ProductChartData> _products = [
-    _ProductChartData('Distemper', 0.7, Colors.red), // Distemper FIRST
+    _ProductChartData('Distemper', 0.7, Colors.red),
     _ProductChartData('WCP', 0.5, Colors.purple),
     _ProductChartData('VAP', 0.3, Colors.orange),
     _ProductChartData('Primer', 0.6, Colors.green),
     _ProductChartData('Water\nProofing', 0.2, Colors.teal),
-    _ProductChartData('WC', 0.4, Colors.blue), // WC LAST
+    _ProductChartData('WC', 0.4, Colors.blue),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
-      title: "Secondary Sale",
-      icon: Icons.show_chart_rounded,
-      iconColor: Colors.purple.shade400,
+    return Advanced3DCard(
+      enableGlassMorphism: false,
+      enableHover: true,
+      enable3DTransform: true,
+      elevation: 8,
+      borderRadius: 20,
+      backgroundColor: Colors.white,
+      padding: ResponsiveUtil.scaledPadding(context, all: 24),
+      margin: ResponsiveUtil.scaledPadding(context, horizontal: 4),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            height: 120,
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: true,
-                  horizontalInterval: 0.2,
-                  verticalInterval: 1,
-                  getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1),
-                  getDrawingVerticalLine: (value) => FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1),
-                ),
-                titlesData: FlTitlesData(
-                  show: true,
-                  bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 0.2,
-                      getTitlesWidget: (value, meta) => Text(
-                        value.toStringAsFixed(1),
-                        style: GoogleFonts.poppins(
-                          color: Colors.purple.shade700,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                      reservedSize: 30,
-                    ),
-                  ),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                ),
-                borderData: FlBorderData(show: false),
-                minX: 0,
-                maxX: (_products.length - 1).toDouble(),
-                minY: 0,
-                maxY: 1,
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: List.generate(_products.length, (i) => FlSpot(i.toDouble(), _products[i].value)),
-                    isCurved: true,
+          Row(
+            children: [
+              Advanced3DTransform(
+                enableAnimation: true,
+                rotationY: 0.05,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                       colors: [
-                        Colors.purple.shade400.withOpacity(0.7),
+                        Colors.purple.shade400,
                         Colors.purple.shade700,
                       ],
                     ),
-                    barWidth: 2.0,
-                    isStrokeCapRound: true,
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, percent, barData, index) {
-                        return FlDotCirclePainter(
-                          radius: 5,
-                          color: Colors.white,
-                          strokeWidth: 2.0,
-                          strokeColor: _products[spot.x.toInt()].color,
-                        );
-                      },
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.show_chart_rounded,
+                    size: ResponsiveUtil.getIconSize(context, 24),
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              SizedBox(width: ResponsiveUtil.scaledWidth(context, 16)),
+              Text(
+                "Secondary Sale",
+                style: GoogleFonts.poppins(
+                  fontSize: ResponsiveUtil.scaledFontSize(context, 20),
+                  fontWeight: FontWeight.w600,
+                  color: SparshTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: ResponsiveUtil.scaledHeight(context, 24)),
+          GlassMorphismContainer(
+            borderRadius: 16,
+            blurStrength: 5,
+            opacity: 0.05,
+            child: SizedBox(
+              height: ResponsiveUtil.scaledHeight(context, 140),
+              child: LineChart(
+                LineChartData(
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: true,
+                    horizontalInterval: 0.2,
+                    verticalInterval: 1,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: SparshTheme.borderGrey.withOpacity(0.3),
+                      strokeWidth: 1,
                     ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.purple.shade200.withOpacity(0.5),
-                          Colors.white.withOpacity(0.01),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
+                    getDrawingVerticalLine: (value) => FlLine(
+                      color: SparshTheme.borderGrey.withOpacity(0.3),
+                      strokeWidth: 1,
                     ),
                   ),
-                ],
+                  titlesData: FlTitlesData(
+                    show: true,
+                    bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: 0.2,
+                        getTitlesWidget: (value, meta) => Text(
+                          value.toStringAsFixed(1),
+                          style: GoogleFonts.poppins(
+                            color: Colors.purple.shade700,
+                            fontWeight: FontWeight.bold,
+                            fontSize: ResponsiveUtil.scaledFontSize(context, 10),
+                          ),
+                        ),
+                        reservedSize: 30,
+                      ),
+                    ),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  minX: 0,
+                  maxX: (_products.length - 1).toDouble(),
+                  minY: 0,
+                  maxY: 1,
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: List.generate(_products.length, (i) => FlSpot(i.toDouble(), _products[i].value)),
+                      isCurved: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.purple.shade400.withOpacity(0.7),
+                          Colors.purple.shade700,
+                        ],
+                      ),
+                      barWidth: 3.0,
+                      isStrokeCapRound: true,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          return FlDotCirclePainter(
+                            radius: 6,
+                            color: Colors.white,
+                            strokeWidth: 2.0,
+                            strokeColor: _products[spot.x.toInt()].color,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.purple.shade200.withOpacity(0.5),
+                            Colors.white.withOpacity(0.01),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          Wrap(
+          SizedBox(height: ResponsiveUtil.scaledHeight(context, 16)),
+          ResponsiveGrid(
+            mobileColumns: 2,
+            tabletColumns: 3,
+            desktopColumns: 6,
             spacing: 8,
-            runSpacing: 4,
+            runSpacing: 8,
             children: _products.map((prod) {
-              return Container(
+              return AdvancedAnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                enableHover: true,
+                enableScale: true,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: prod.color.withOpacity(0.1),
@@ -385,10 +661,11 @@ class SecondarySaleScreen extends StatelessWidget {
                 child: Text(
                   prod.name.replaceAll('\n', ' '),
                   style: GoogleFonts.poppins(
-                    fontSize: 11,
+                    fontSize: ResponsiveUtil.scaledFontSize(context, 11),
                     fontWeight: FontWeight.w500,
                     color: prod.color,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               );
             }).toList(),
@@ -403,128 +680,251 @@ class SecondarySaleScreen extends StatelessWidget {
 
 class MyNetworkScreen extends StatelessWidget {
   const MyNetworkScreen({super.key});
+  
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
-      title: "My Network",
-      icon: Icons.groups_2_rounded,
-      iconColor: Colors.teal,
+    return Advanced3DCard(
+      enableGlassMorphism: false,
+      enableHover: true,
+      enable3DTransform: true,
+      elevation: 8,
+      borderRadius: 20,
+      backgroundColor: Colors.white,
+      padding: ResponsiveUtil.scaledPadding(context, all: 24),
+      margin: ResponsiveUtil.scaledPadding(context, horizontal: 4),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _InfoBox(
-            label: "Total Retailer",
-            value: "173",
-            color: Colors.teal.shade400,
+          Row(
+            children: [
+              Advanced3DTransform(
+                enableAnimation: true,
+                rotationY: 0.05,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: SparshTheme.greenGradient,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.groups_2_rounded,
+                    size: ResponsiveUtil.getIconSize(context, 24),
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              SizedBox(width: ResponsiveUtil.scaledWidth(context, 16)),
+              Text(
+                "My Network",
+                style: GoogleFonts.poppins(
+                  fontSize: ResponsiveUtil.scaledFontSize(context, 20),
+                  fontWeight: FontWeight.w600,
+                  color: SparshTheme.textPrimary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
-          _InfoBox(
-            label: "Total Unique Billed",
-            value: "0",
-            color: Colors.deepOrange.shade400,
+          SizedBox(height: ResponsiveUtil.scaledHeight(context, 24)),
+          ResponsiveBuilder(
+            builder: (context, screenType) {
+              if (screenType == ScreenType.mobile) {
+                return Column(
+                  children: [
+                    _buildInfoBox(
+                      context,
+                      "Total Retailer",
+                      "173",
+                      SparshTheme.successGreen,
+                      Icons.store_outlined,
+                    ),
+                    SizedBox(height: ResponsiveUtil.scaledHeight(context, 16)),
+                    _buildInfoBox(
+                      context,
+                      "Total Unique Billed",
+                      "0",
+                      SparshTheme.warningOrange,
+                      Icons.receipt_long_outlined,
+                    ),
+                  ],
+                );
+              } else {
+                return Row(
+                  children: [
+                    Expanded(
+                      child: _buildInfoBox(
+                        context,
+                        "Total Retailer",
+                        "173",
+                        SparshTheme.successGreen,
+                        Icons.store_outlined,
+                      ),
+                    ),
+                    SizedBox(width: ResponsiveUtil.scaledWidth(context, 16)),
+                    Expanded(
+                      child: _buildInfoBox(
+                        context,
+                        "Total Unique Billed",
+                        "0",
+                        SparshTheme.warningOrange,
+                        Icons.receipt_long_outlined,
+                      ),
+                    ),
+                  ],
+                );
+              }
+            },
           ),
-          const Divider(height: 32, thickness: 1.2, color: Color(0xFFF2F4F6)),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text("Billing Details", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey.shade900)),
+          SizedBox(height: ResponsiveUtil.scaledHeight(context, 24)),
+          Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  SparshTheme.borderGrey.withOpacity(0.3),
+                  SparshTheme.borderGrey,
+                  SparshTheme.borderGrey.withOpacity(0.3),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: ResponsiveUtil.scaledHeight(context, 24)),
+          Text(
+            "Billing Details",
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold,
+              fontSize: ResponsiveUtil.scaledFontSize(context, 18),
+              color: SparshTheme.textPrimary,
+            ),
+          ),
+          SizedBox(height: ResponsiveUtil.scaledHeight(context, 16)),
           ...[
-            "Distemper", // Distemper FIRST
+            "Distemper",
             "WCP",
             "VAP",
             "Primer",
             "Water Proofing",
-            "WC", // WC LAST
-          ].map((name) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5.5),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(name, style: GoogleFonts.poppins(fontSize: 14)),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Text(
-                    "0",
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.teal.shade700),
-                  ),
-                ),
-              ],
-            ),
-          )),
+            "WC",
+          ].map((name) => _buildBillingDetailItem(context, name, "0")),
         ],
       ),
     );
   }
-}
-
-// --- STYLED REUSABLE CARD ---
-
-class SectionCard extends StatelessWidget {
-  final String title;
-  final Widget child;
-  final IconData? icon;
-  final Color? iconColor;
-  const SectionCard({
-    super.key,
-    required this.title,
-    required this.child,
-    this.icon,
-    this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 3),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blueGrey.withOpacity(0.10),
-              blurRadius: 18,
-              offset: const Offset(0, 7),
-            ),
+  
+  Widget _buildInfoBox(BuildContext context, String label, String value, Color color, IconData icon) {
+    return AdvancedAnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      enableHover: true,
+      enableScale: true,
+      padding: ResponsiveUtil.scaledPadding(context, all: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withOpacity(0.1),
+            color.withOpacity(0.05),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  if (icon != null)
-                    Container(
-                      margin: const EdgeInsets.only(right: 10),
-                      decoration: BoxDecoration(
-                        color: iconColor?.withOpacity(0.15) ?? Colors.blue.withOpacity(0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(icon, size: 22, color: iconColor ?? Colors.blue),
-                    ),
-                  Text(
-                    title,
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 19,
-                      color: Colors.blueGrey.shade900,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              child
-            ],
-          ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
         ),
+      ),
+      child: Row(
+        children: [
+          Advanced3DTransform(
+            enableAnimation: true,
+            rotationY: 0.1,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: ResponsiveUtil.getIconSize(context, 20),
+              ),
+            ),
+          ),
+          SizedBox(width: ResponsiveUtil.scaledWidth(context, 12)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: ResponsiveUtil.scaledFontSize(context, 14),
+                    fontWeight: FontWeight.w500,
+                    color: SparshTheme.textSecondary,
+                  ),
+                ),
+                SizedBox(height: ResponsiveUtil.scaledHeight(context, 4)),
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: ResponsiveUtil.scaledFontSize(context, 20),
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildBillingDetailItem(BuildContext context, String name, String value) {
+    return AdvancedAnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      enableHover: true,
+      enableScale: true,
+      padding: ResponsiveUtil.scaledPadding(context, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            name,
+            style: GoogleFonts.poppins(
+              fontSize: ResponsiveUtil.scaledFontSize(context, 14),
+              color: SparshTheme.textPrimary,
+            ),
+          ),
+          Advanced3DTransform(
+            enableAnimation: true,
+            scaleX: 1.05,
+            scaleY: 1.05,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    SparshTheme.successGreen.withOpacity(0.1),
+                    SparshTheme.successGreen.withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: SparshTheme.successGreen.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                value,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: ResponsiveUtil.scaledFontSize(context, 14),
+                  color: SparshTheme.successGreen,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -543,33 +943,4 @@ class _ProductChartData {
   final double value;
   final Color color;
   const _ProductChartData(this.name, this.value, this.color);
-}
-
-class _InfoBox extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-  const _InfoBox({required this.label, required this.value, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.09),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.circle, color: color, size: 10),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(label, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w500)),
-          ),
-          Text(value, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 19, color: color)),
-        ],
-      ),
-    );
-  }
 }
