@@ -2,6 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:learning2/core/components/advanced_3d/advanced_3d_components.dart';
+import 'package:learning2/core/utils/responsive_design.dart';
+import 'package:learning2/core/utils/form_validators/form_validators.dart';
+import 'package:learning2/core/theme/app_theme.dart';
 
 class AccountsStatementPage extends StatefulWidget {
   const AccountsStatementPage({super.key});
@@ -10,7 +14,7 @@ class AccountsStatementPage extends StatefulWidget {
   State<AccountsStatementPage> createState() => _AccountsStatementPageState();
 }
 
-class _AccountsStatementPageState extends State<AccountsStatementPage> {
+class _AccountsStatementPageState extends State<AccountsStatementPage> with TickerProviderStateMixin {
   // Controllers for date fields
   final TextEditingController _startDateController = TextEditingController();
   final TextEditingController _endDateController = TextEditingController();
@@ -21,6 +25,11 @@ class _AccountsStatementPageState extends State<AccountsStatementPage> {
 
   // Controller for "Code" field
   final TextEditingController _codeController = TextEditingController();
+
+  // Animation controllers
+  late AnimationController _animController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
 
   // Sample items (replace with real data)
   final List<String> _purchaserTypes = [
@@ -40,6 +49,24 @@ class _AccountsStatementPageState extends State<AccountsStatementPage> {
     // Initialize date fields as empty (or you can default them to today)
     _startDateController.text = '';
     _endDateController.text = '';
+    _setupAnimations();
+  }
+
+  void _setupAnimations() {
+    _animController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+    );
+    
+    _slideAnimation = Tween<double>(begin: 30.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
+    
+    _animController.forward();
   }
 
   @override
@@ -47,6 +74,7 @@ class _AccountsStatementPageState extends State<AccountsStatementPage> {
     _startDateController.dispose();
     _endDateController.dispose();
     _codeController.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
@@ -73,372 +101,364 @@ class _AccountsStatementPageState extends State<AccountsStatementPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      // Full-screen gradient background
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF1976D2),
-            Color(0xFF42A5F5),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+  Widget _buildDateRangeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Date Range',
+          style: ResponsiveTypography.titleMedium(context).copyWith(
+            color: SparshTheme.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        SizedBox(height: ResponsiveSpacing.medium(context)),
+        
+        ResponsiveBuilder(
+          mobile: Column(
+            children: [
+              _buildDateField(
+                controller: _startDateController,
+                labelText: 'Start Date',
+                hintText: 'dd/MM/yyyy',
+              ),
+              SizedBox(height: ResponsiveSpacing.medium(context)),
+              _buildDateField(
+                controller: _endDateController,
+                labelText: 'End Date',
+                hintText: 'dd/MM/yyyy',
+              ),
+            ],
+          ),
+          tablet: Row(
+            children: [
+              Expanded(
+                child: _buildDateField(
+                  controller: _startDateController,
+                  labelText: 'Start Date',
+                  hintText: 'dd/MM/yyyy',
+                ),
+              ),
+              SizedBox(width: ResponsiveSpacing.medium(context)),
+              Expanded(
+                child: _buildDateField(
+                  controller: _endDateController,
+                  labelText: 'End Date',
+                  hintText: 'dd/MM/yyyy',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateField({
+    required TextEditingController controller,
+    required String labelText,
+    required String hintText,
+  }) {
+    return GestureDetector(
+      onTap: () => _pickDate(context, controller),
+      child: Advanced3DTextFormField(
+        controller: controller,
+        labelText: labelText,
+        hintText: hintText,
+        readOnly: true,
+        suffixIcon: Icon(
+          Icons.calendar_today,
+          color: SparshTheme.primaryBlue,
+        ),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Please select a date';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildFiltersSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Filters',
+          style: ResponsiveTypography.titleMedium(context).copyWith(
+            color: SparshTheme.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        SizedBox(height: ResponsiveSpacing.medium(context)),
+        
+        ResponsiveBuilder(
+          mobile: Column(
+            children: [
+              _buildDropdownField(
+                value: _selectedPurchaserType,
+                items: _purchaserTypes,
+                labelText: 'Purchaser Type',
+                onChanged: (value) {
+                  setState(() {
+                    _selectedPurchaserType = value;
+                  });
+                },
+              ),
+              SizedBox(height: ResponsiveSpacing.medium(context)),
+              _buildDropdownField(
+                value: _selectedAreaCode,
+                items: _areaCodes,
+                labelText: 'Area Code',
+                onChanged: (value) {
+                  setState(() {
+                    _selectedAreaCode = value;
+                  });
+                },
+              ),
+              SizedBox(height: ResponsiveSpacing.medium(context)),
+              Advanced3DTextFormField(
+                controller: _codeController,
+                labelText: 'Code',
+                hintText: 'Enter code',
+                validator: FormValidators.required,
+              ),
+            ],
+          ),
+          tablet: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildDropdownField(
+                      value: _selectedPurchaserType,
+                      items: _purchaserTypes,
+                      labelText: 'Purchaser Type',
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedPurchaserType = value;
+                        });
+                      },
+                    ),
+                  ),
+                  SizedBox(width: ResponsiveSpacing.medium(context)),
+                  Expanded(
+                    child: _buildDropdownField(
+                      value: _selectedAreaCode,
+                      items: _areaCodes,
+                      labelText: 'Area Code',
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedAreaCode = value;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: ResponsiveSpacing.medium(context)),
+              Advanced3DTextFormField(
+                controller: _codeController,
+                labelText: 'Code',
+                hintText: 'Enter code',
+                validator: FormValidators.required,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField({
+    required String? value,
+    required List<String> items,
+    required String labelText,
+    required Function(String?) onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      decoration: InputDecoration(
+        labelText: labelText,
+        labelStyle: ResponsiveTypography.bodyMedium(context).copyWith(
+          color: SparshTheme.textSecondary,
+        ),
+        filled: true,
+        fillColor: SparshTheme.lightBlueBackground,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: SparshTheme.borderGrey),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: SparshTheme.primaryBlue, width: 2),
         ),
       ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-          title: const Text(
-            'Accounts Statement – Confidential',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-              letterSpacing: 0.5,
-              shadows: [
-                Shadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
+      items: items.map((String item) {
+        return DropdownMenuItem<String>(
+          value: item,
+          child: Text(item),
+        );
+      }).toList(),
+      onChanged: onChanged,
+      validator: (value) {
+        if (value == null || value == 'Select') {
+          return 'Please select an option';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildGenerateButton() {
+    return Advanced3DButton(
+      text: 'Generate Report',
+      onPressed: () {
+        // Add report generation logic here
+        _showSuccessDialog();
+      },
+      backgroundColor: SparshTheme.primaryBlue,
+      textColor: Colors.white,
+      borderRadius: 12,
+      elevation: 8,
+      enableGlassMorphism: true,
+      icon: Icons.assessment,
+    );
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Success'),
+          content: const Text('Report generation initiated successfully.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
             ),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
-            onPressed: () => Navigator.pop(context),
-            tooltip: 'Back',
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: SparshTheme.scaffoldBackground,
+      appBar: AppBar(
+        title: Text(
+          'Accounts Statement',
+          style: ResponsiveTypography.titleLarge(context).copyWith(
+            color: SparshTheme.textPrimary,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(12.0),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                bool isMobile = constraints.maxWidth < 600;
-
-                // Build form card
-                return Column(
+        backgroundColor: SparshTheme.cardBackground,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: SparshTheme.primaryBlue),
+      ),
+      body: AnimatedBuilder(
+        animation: _animController,
+        builder: (context, child) {
+          return FadeTransition(
+            opacity: _fadeAnimation,
+            child: Transform.translate(
+              offset: Offset(0, _slideAnimation.value),
+              child: SingleChildScrollView(
+                padding: ResponsiveSpacing.paddingMedium(context),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.98),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
+                    // Header Card
+                    Advanced3DCard(
+                      padding: ResponsiveSpacing.paddingLarge(context),
+                      backgroundColor: SparshTheme.cardBackground,
+                      borderRadius: 20,
+                      enableGlassMorphism: true,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: ResponsiveSpacing.paddingSmall(context),
+                            decoration: BoxDecoration(
+                              color: SparshTheme.primaryBlue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.account_balance_outlined,
+                              color: SparshTheme.primaryBlue,
+                              size: ResponsiveUtil.scaledSize(context, 24),
+                            ),
+                          ),
+                          SizedBox(width: ResponsiveSpacing.medium(context)),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Accounts Statement',
+                                  style: ResponsiveTypography.headlineSmall(context).copyWith(
+                                    color: SparshTheme.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Generate comprehensive financial reports',
+                                  style: ResponsiveTypography.bodyMedium(context).copyWith(
+                                    color: SparshTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 16, horizontal: 16),
-                      child: isMobile
-                          ? _buildMobileLayout()
-                          : _buildTabletDesktopLayout(),
                     ),
-                    const SizedBox(height: 24),
+                    
+                    SizedBox(height: ResponsiveSpacing.large(context)),
+                    
+                    // Form Card
+                    Advanced3DCard(
+                      padding: ResponsiveSpacing.paddingLarge(context),
+                      backgroundColor: SparshTheme.cardBackground,
+                      borderRadius: 20,
+                      enableGlassMorphism: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Generate Report',
+                            style: ResponsiveTypography.titleLarge(context).copyWith(
+                              color: SparshTheme.textPrimary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: ResponsiveSpacing.large(context)),
+                          
+                          // Date Range Section
+                          _buildDateRangeSection(),
+                          SizedBox(height: ResponsiveSpacing.large(context)),
+                          
+                          // Filters Section
+                          _buildFiltersSection(),
+                          SizedBox(height: ResponsiveSpacing.large(context)),
+                          
+                          // Generate Button
+                          _buildGenerateButton(),
+                        ],
+                      ),
+                    ),
                   ],
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Layout for mobile (stack all fields vertically)
-  Widget _buildMobileLayout() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Start Date
-        const Text('Start Date:', style: TextStyle(fontSize: 14)),
-        const SizedBox(height: 6),
-        GestureDetector(
-          onTap: () => _pickDate(context, _startDateController),
-          child: AbsorbPointer(
-            child: TextField(
-              controller: _startDateController,
-              decoration: _inputDecoration(
-                hintText: 'DD/MM/YYYY',
-                suffixIcon: const Icon(Icons.calendar_today),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // End Date
-        const Text('End Date:', style: TextStyle(fontSize: 14)),
-        const SizedBox(height: 6),
-        GestureDetector(
-          onTap: () => _pickDate(context, _endDateController),
-          child: AbsorbPointer(
-            child: TextField(
-              controller: _endDateController,
-              decoration: _inputDecoration(
-                hintText: 'DD/MM/YYYY',
-                suffixIcon: const Icon(Icons.calendar_today),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Purchaser Type *
-        const Text('Purchaser Type *', style: TextStyle(fontSize: 14)),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          value: _selectedPurchaserType ?? _purchaserTypes.first,
-          decoration: _inputDecoration(),
-          items: _purchaserTypes.map((p) {
-            return DropdownMenuItem(
-              value: p,
-              child: Text(p),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedPurchaserType = value;
-            });
-          },
-        ),
-        const SizedBox(height: 16),
-
-        // Area Code *
-        const Text('Area Code *', style: TextStyle(fontSize: 14)),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          value: _selectedAreaCode ?? _areaCodes.first,
-          decoration: _inputDecoration(),
-          items: _areaCodes.map((a) {
-            return DropdownMenuItem(
-              value: a,
-              child: Text(a),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedAreaCode = value;
-            });
-          },
-        ),
-        const SizedBox(height: 16),
-
-        // Code *
-        const Text('Code *', style: TextStyle(fontSize: 14)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _codeController,
-          decoration: _inputDecoration(hintText: 'Enter Code'),
-        ),
-        const SizedBox(height: 16),
-
-        // Go button
-        Align(
-          alignment: Alignment.centerRight,
-          child: ElevatedButton(
-            onPressed: () {
-              // TODO: Implement "Go" logic
-              debugPrint('--- GO PRESSED ---');
-              debugPrint('Start Date: ${_startDateController.text}');
-              debugPrint('End Date: ${_endDateController.text}');
-              debugPrint('Purchaser Type: $_selectedPurchaserType');
-              debugPrint('Area Code: $_selectedAreaCode');
-              debugPrint('Code: ${_codeController.text}');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              minimumSize: const Size(80, 48),
-            ),
-            child: const Text('Go', style: TextStyle(fontSize: 16)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Layout for tablet/desktop (fields arranged in two rows)
-  Widget _buildTabletDesktopLayout() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            // Start Date (flex: 2)
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Start Date:', style: TextStyle(fontSize: 14)),
-                  const SizedBox(height: 6),
-                  GestureDetector(
-                    onTap: () => _pickDate(context, _startDateController),
-                    child: AbsorbPointer(
-                      child: TextField(
-                        controller: _startDateController,
-                        decoration: _inputDecoration(
-                          hintText: 'DD/MM/YYYY',
-                          suffixIcon: const Icon(Icons.calendar_today),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-
-            // End Date (flex: 2)
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('End Date:', style: TextStyle(fontSize: 14)),
-                  const SizedBox(height: 6),
-                  GestureDetector(
-                    onTap: () => _pickDate(context, _endDateController),
-                    child: AbsorbPointer(
-                      child: TextField(
-                        controller: _endDateController,
-                        decoration: _inputDecoration(
-                          hintText: 'DD/MM/YYYY',
-                          suffixIcon: const Icon(Icons.calendar_today),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-
-            // Purchaser Type * (flex: 2)
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Purchaser Type *',
-                      style: TextStyle(fontSize: 14)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: _selectedPurchaserType ?? _purchaserTypes.first,
-                    decoration: _inputDecoration(),
-                    items: _purchaserTypes.map((p) {
-                      return DropdownMenuItem(
-                        value: p,
-                        child: Text(p),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedPurchaserType = value;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-
-        Row(
-          children: [
-            // Area Code * (flex: 2)
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Area Code *', style: TextStyle(fontSize: 14)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: _selectedAreaCode ?? _areaCodes.first,
-                    decoration: _inputDecoration(),
-                    items: _areaCodes.map((a) {
-                      return DropdownMenuItem(
-                        value: a,
-                        child: Text(a),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedAreaCode = value;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-
-            // Code * (flex: 2)
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Code *', style: TextStyle(fontSize: 14)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _codeController,
-                    decoration: _inputDecoration(hintText: 'Enter Code'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-
-            // Go Button (fixed width)
-            SizedBox(
-              width: 80,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Implement "Go" logic
-                  debugPrint('--- GO PRESSED ---');
-                  debugPrint('Start Date: ${_startDateController.text}');
-                  debugPrint('End Date: ${_endDateController.text}');
-                  debugPrint('Purchaser Type: $_selectedPurchaserType');
-                  debugPrint('Area Code: $_selectedAreaCode');
-                  debugPrint('Code: ${_codeController.text}');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
                 ),
-                child: const Text('Go', style: TextStyle(fontSize: 16)),
               ),
             ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  /// InputDecoration for all text fields
-  InputDecoration _inputDecoration(
-      {String? hintText, Widget? suffixIcon, bool enabled = true}) {
-    return InputDecoration(
-      hintText: hintText,
-      filled: true,
-      fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade200,
-      enabled: enabled,
-      suffixIcon: suffixIcon,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+          );
+        },
       ),
     );
   }
