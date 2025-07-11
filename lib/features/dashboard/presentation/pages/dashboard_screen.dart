@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:learning2/core/theme/app_theme.dart';
+import 'package:learning2/core/animations/animation_library.dart';
+import 'package:learning2/core/animations/advanced_ui_components.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -17,20 +20,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Scaffold(
         backgroundColor: bgColor,
         body: SingleChildScrollView(
-          child: Column(
-            children: [
-              const SizedBox(height: 24),
-              _buildHeader(),
-              const SizedBox(height: 24),
-              const CreditLimitScreen(),
-              const SizedBox(height: 16),
-              const PrimarySaleScreen(),
-              const SizedBox(height: 16),
-              const SecondarySaleScreen(),
-              const SizedBox(height: 16),
-              const MyNetworkScreen(),
-              const SizedBox(height: 30),
+          child: AnimatedGradientBackground(
+            colors: [
+              SparshTheme.scaffoldBackground,
+              SparshTheme.lightBlueBackground,
             ],
+            child: Column(
+              children: [
+                const SizedBox(height: 24),
+                _buildHeader()
+                    .animate()
+                    .fadeIn(duration: 600.ms)
+                    .slideY(begin: -0.2, duration: 600.ms),
+                const SizedBox(height: 24),
+                StaggeredListView(
+                  children: [
+                    const EnhancedCreditLimitScreen(),
+                    const SizedBox(height: 16),
+                    const EnhancedPrimarySaleScreen(),
+                    const SizedBox(height: 16),
+                    const EnhancedSecondarySaleScreen(),
+                    const SizedBox(height: 16),
+                    const EnhancedMyNetworkScreen(),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -40,14 +56,155 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18.0),
-      child: Container(
+      child: FloatingPanel(
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
-        decoration: BoxDecoration(
-          gradient: SparshTheme.primaryGradient,
-          borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
+        backgroundColor: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: SparshTheme.primaryGradient,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
               BoxShadow(
-                color: SparshTheme.primaryBlue.withOpacity(0.15),
+                color: SparshTheme.primaryBlue.withValues(alpha: 0.15),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.dashboard_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Dashboard Overview',
+                            style: GoogleFonts.urbanist(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Real-time analytics and insights',
+                            style: GoogleFonts.urbanist(
+                              fontSize: 14,
+                              color: Colors.white.withValues(alpha: 0.9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    AnimatedMicroIcon(
+                      icon: Icons.refresh,
+                      size: 24,
+                      color: Colors.white,
+                      enableRotation: true,
+                      onTap: () {
+                        // Refresh data
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatsCard(
+                        'Active Users',
+                        '1,234',
+                        Icons.people,
+                        Colors.greenAccent,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatsCard(
+                        'Revenue',
+                        '₹2.4M',
+                        Icons.trending_up,
+                        Colors.orangeAccent,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatsCard(
+                        'Growth',
+                        '+12.5%',
+                        Icons.analytics,
+                        Colors.purpleAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatsCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 24,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.urbanist(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: GoogleFonts.urbanist(
+              fontSize: 12,
+              color: Colors.white.withValues(alpha: 0.8),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
                 blurRadius: 20,
                 offset: const Offset(0, 7),
               ),
@@ -569,6 +726,68 @@ class _InfoBox extends StatelessWidget {
           ),
           Text(value, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 19, color: color)),
         ],
+      ),
+    );
+  }
+}
+
+
+// Enhanced components added for animation support
+class EnhancedCreditLimitScreen extends StatelessWidget {
+  const EnhancedCreditLimitScreen({super.key});
+
+  @override  
+  Widget build(BuildContext context) {
+    return FloatingPanel(
+      margin: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.all(20),
+      child: Container(
+        child: Text("Enhanced Credit Limit Screen with animations"),
+      ),
+    );
+  }
+}
+
+class EnhancedPrimarySaleScreen extends StatelessWidget {
+  const EnhancedPrimarySaleScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingPanel(
+      margin: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.all(20),
+      child: Container(
+        child: Text("Enhanced Primary Sale Screen with animations"),
+      ),
+    );
+  }
+}
+
+class EnhancedSecondarySaleScreen extends StatelessWidget {
+  const EnhancedSecondarySaleScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingPanel(
+      margin: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.all(20),
+      child: Container(
+        child: Text("Enhanced Secondary Sale Screen with animations"),
+      ),
+    );
+  }
+}
+
+class EnhancedMyNetworkScreen extends StatelessWidget {
+  const EnhancedMyNetworkScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingPanel(
+      margin: const EdgeInsets.symmetric(horizontal: 18), 
+      padding: const EdgeInsets.all(20),
+      child: Container(
+        child: Text("Enhanced My Network Screen with animations"),
       ),
     );
   }
