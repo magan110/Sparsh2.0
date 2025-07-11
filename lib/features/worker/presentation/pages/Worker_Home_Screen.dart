@@ -21,9 +21,11 @@ import 'package:learning2/features/worker/presentation/pages/Telephone_Directory
 import 'package:learning2/features/worker/presentation/pages/Wages_slip.dart';
 import 'package:learning2/features/worker/presentation/pages/Worker_attendence.dart';
 import 'package:learning2/features/worker/presentation/pages/overtime_report_self.dart';
-// import '../chat_screen.dart'; // Removed
 import 'package:learning2/core/constants/fonts.dart';
 import 'package:learning2/core/theme/app_theme.dart';
+import 'package:learning2/core/components/advanced_3d/advanced_3d_components.dart';
+import 'package:learning2/core/utils/responsive_design.dart';
+import 'package:learning2/core/utils/form_validators/form_validators.dart';
 
 class WorkerHomeScreen extends StatefulWidget {
   const WorkerHomeScreen({super.key});
@@ -32,27 +34,52 @@ class WorkerHomeScreen extends StatefulWidget {
   State<WorkerHomeScreen> createState() => _WorkerHomeScreenState();
 }
 
-class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
+class _WorkerHomeScreenState extends State<WorkerHomeScreen> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   bool _isSearchVisible = false;
   final TextEditingController _searchController = TextEditingController();
+  
+  // Animation controllers
+  late AnimationController _animController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
+  
   final List<Widget> _screens = [
-    const HomeContent(),
+    const Advanced3DWorkerHomeContent(),
     const DashboardScreen(),
     const MailScreen(),
     const ProfilePage(),
   ];
 
   // Store the current screen.  Important for keeping bottom nav.
-  Widget _currentScreen = const HomeContent();
+  Widget _currentScreen = const Advanced3DWorkerHomeContent();
 
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
+  }
+
+  void _setupAnimations() {
+    _animController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+    );
+    
+    _slideAnimation = Tween<double>(begin: 40.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
+    
+    _animController.forward();
   }
 
   @override
   void dispose() {
+    _animController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -72,62 +99,54 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      // Wrap your Scaffold with WillPopScope
       onWillPop: () async {
-        // Handle back button press here
         if (_selectedIndex != 0) {
-          //check if bottom navigation is selected
-          _updateCurrentScreen(0); // Go back to the home screen
-          return false; // Prevent default back button behavior (closing the app)
+          _updateCurrentScreen(0);
+          return false;
         }
-        return true; // Allow closing the app from the home screen
+        return true;
       },
       child: Scaffold(
-        backgroundColor: SparshTheme.lightBlueBackground,
-        appBar: _buildAppBar(),
+        backgroundColor: SparshTheme.scaffoldBackground,
+        appBar: _buildAdvanced3DAppBar(),
         drawer: const WorkerAppDrawer(),
-        body: Stack(
-          children: [
-            // Use _currentScreen here.
-            _currentScreen,
-            _buildSearchInput(context),
-          ],
+        body: AnimatedBuilder(
+          animation: _fadeAnimation,
+          builder: (context, child) {
+            return FadeTransition(
+              opacity: _fadeAnimation,
+              child: Transform.translate(
+                offset: Offset(0, _slideAnimation.value),
+                child: Stack(
+                  children: [
+                    _currentScreen,
+                    _buildAdvanced3DSearchInput(context),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      elevation: 4,
-      flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          gradient: SparshTheme.appBarGradient,
+  PreferredSizeWidget _buildAdvanced3DAppBar() {
+    return Advanced3DAppBar(
+      title: 'SPARSH WORKER',
+      centerTitle: true,
+      leading: Builder(
+        builder: (context) => Advanced3DButton(
+          onPressed: () => Scaffold.of(context).openDrawer(),
+          style: Advanced3DButtonStyle.icon,
+          icon: Icons.menu,
+          iconColor: Colors.white,
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
         ),
       ),
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.star, color: Colors.white, size: 28),
-          const SizedBox(width: 8),
-          Text(
-            'SPARSH',
-            style: Fonts.heading1.copyWith(
-              color: Colors.white,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ],
-      ),
-      centerTitle: true,
-      iconTheme: const IconThemeData(color: Colors.white),
       actions: [
-        IconButton(
-          icon: const Icon(
-            Icons.notifications_none,
-            size: 28,
-            color: Colors.white,
-          ),
+        Advanced3DButton(
           onPressed: () {
             Navigator.push(
               context,
@@ -135,19 +154,73 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                 builder: (context) => const NotificationScreen(),
               ),
             );
-            print('Notifications tapped');
           },
+          style: Advanced3DButtonStyle.icon,
+          icon: Icons.notifications_none,
+          iconColor: Colors.white,
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
         ),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (Widget child, Animation<double> animation) {
             return ScaleTransition(scale: animation, child: child);
           },
-          child:
-          _isSearchVisible
+          child: _isSearchVisible
               ? const SizedBox(width: 48, height: 48)
-              : IconButton(
-            key: const ValueKey('search_icon'),
+              : Advanced3DButton(
+                  key: const ValueKey('search_icon'),
+                  onPressed: () {
+                    setState(() {
+                      _isSearchVisible = true;
+                    });
+                  },
+                  style: Advanced3DButtonStyle.icon,
+                  icon: Icons.search,
+                  iconColor: Colors.white,
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdvanced3DSearchInput(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: _isSearchVisible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: Visibility(
+        visible: _isSearchVisible,
+        child: Advanced3DCard(
+          margin: ResponsiveSpacing.paddingMedium(context),
+          elevation: 8,
+          borderRadius: 20,
+          enableGlassMorphism: true,
+          backgroundColor: SparshTheme.cardBackground,
+          shadowColor: SparshTheme.primaryBlue.withOpacity(0.1),
+          child: Advanced3DTextField(
+            controller: _searchController,
+            hintText: 'Search worker services...',
+            prefixIcon: Icons.search,
+            suffixIcon: Icons.close,
+            onSuffixIconPressed: () {
+              setState(() {
+                _isSearchVisible = false;
+                _searchController.clear();
+              });
+            },
+            onSubmitted: (value) {
+              setState(() {
+                _isSearchVisible = false;
+                _searchController.clear();
+              });
+            },
+          ),
+        ),
+      ),
+    );
+  }
             icon: const Icon(
               Icons.search,
               size: 28,
