@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/components/advanced_3d_components.dart';
+import '../../../../core/utils/responsive_util.dart';
 import 'Worker_Home_Screen.dart';
 
 class MovieBookingDetails extends StatefulWidget {
@@ -9,9 +12,13 @@ class MovieBookingDetails extends StatefulWidget {
   State<MovieBookingDetails> createState() => _MovieBookingDetailsState();
 }
 
-class _MovieBookingDetailsState extends State<MovieBookingDetails> {
+class _MovieBookingDetailsState extends State<MovieBookingDetails> 
+    with TickerProviderStateMixin {
   final TextEditingController _passController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   String _selectedRowsOption = 'Show all';
   String? _selectedMovieShowTime;
@@ -170,14 +177,28 @@ class _MovieBookingDetailsState extends State<MovieBookingDetails> {
   @override
   void initState() {
     super.initState();
-    _filterTableData(); // Initialize with filtered data (which will include dummy if _tableData is empty)
-    _searchController.addListener(_filterTableData); // Listen for search input changes
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+    
+    _filterTableData(); // Initialize with filtered data
+    _searchController.addListener(_filterTableData);
+    _animationController.forward();
   }
 
   @override
   void dispose() {
+    _animationController.dispose();
     _passController.dispose();
-    _searchController.removeListener(_filterTableData); // Remove listener
+    _searchController.removeListener(_filterTableData);
     _searchController.dispose();
     super.dispose();
   }
@@ -224,176 +245,303 @@ class _MovieBookingDetailsState extends State<MovieBookingDetails> {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Theme(
-      data: theme,
-      child: Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        appBar: AppBar(
-          title: const Text('Movie Booking Details'),
-          centerTitle: true,
-          leading: IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const WorkerHomeScreen()),
-              );
-            },
-            icon: const Icon(Icons.arrow_back_ios_new),
-          ),
+    return Scaffold(
+      backgroundColor: SparshTheme.scaffoldBackground,
+      appBar: Advanced3DAppBar(
+        title: Text(
+          'Movie Booking Details',
+          style: SparshTypography.heading5.copyWith(color: Colors.white),
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 24.0),
+        backgroundColor: SparshTheme.primaryBlue,
+        enableGlassMorphism: false,
+        leading: IconButton(
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const WorkerHomeScreen()),
+            );
+          },
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+        ),
+      ),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          padding: ResponsiveUtil.scaledPadding(context, all: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildSectionTitle(
-                "Entry Pass Detail",
-                Icons.confirmation_num_outlined,
-                theme.primaryColor,
-              ),
-              const SizedBox(height: 16),
-              _buildStyledTextField(
-                controller: _passController,
-                hintText: "Entry Pass No",
-                keyboardType: TextInputType.number, // Changed to number for entry pass
-                cardColor: theme.cardColor,
-                textColor: theme.textTheme.bodyLarge!.color!,
-                hintColor: theme.inputDecorationTheme.hintStyle!.color!,
-              ),
-              const SizedBox(height: 32),
-              _buildSectionTitle(
-                "Select Show Time & Movie",
-                Icons.theaters_outlined,
-                theme.primaryColor,
-              ),
-              const SizedBox(height: 16),
-              _buildStyledDropdown(
-                hintText: "Select Show Time & Movie",
-                items: _movieShowTimes,
-                selectedValue: _selectedMovieShowTime,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedMovieShowTime = value;
-                    _filterTableData(); // Re-filter when show time changes
-                  });
-                },
-                cardColor: theme.cardColor,
-                textColor: theme.textTheme.bodyLarge!.color!,
-                hintColor: theme.inputDecorationTheme.hintStyle!.color!,
-              ),
-              const SizedBox(height: 32),
-              _buildStyledDropdown(
-                hintText: "Rows per page",
-                items: _rowsOptions,
-                selectedValue: _selectedRowsOption,
-                onChanged: (newValue) {
-                  setState(() {
-                    _selectedRowsOption = newValue!;
-                    _filterTableData(); // Re-filter when rows option changes
-                  });
-                },
-                cardColor: theme.cardColor,
-                textColor: theme.textTheme.bodyLarge!.color!,
-                hintColor: theme.inputDecorationTheme.hintStyle!.color!,
-              ),
-              const SizedBox(height: 24),
-              _buildStyledTextField(
-                controller: _searchController,
-                hintText: "Search bookings...",
-                cardColor: theme.cardColor,
-                textColor: theme.textTheme.bodyLarge!.color!,
-                hintColor: theme.inputDecorationTheme.hintStyle!.color!,
-                suffixIcon: Icons.search,
-              ),
-              const SizedBox(height: 24),
-              // Always render the SingleChildScrollView and DataTable
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(
-                            theme.primaryColor.withOpacity(0.2)),
-                        headingTextStyle: theme.textTheme.titleMedium!.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.primaryColor,
-                        ),
-                        dataRowColor:
-                        WidgetStateProperty.resolveWith<Color?>(
-                                (Set<WidgetState> states) {
-                              if (states.contains(WidgetState.selected)) {
-                                return theme.primaryColor.withOpacity(0.1);
-                              }
-                              return Colors.grey[50];
-                            }),
-                        dataTextStyle: theme.textTheme.bodyMedium!.copyWith(
-                          color: Colors.black87,
-                          fontSize: 14,
-                        ),
-                        border: TableBorder(
-                          horizontalInside:
-                          BorderSide(color: Colors.grey.shade300, width: 1),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        columnSpacing: 20,
-                        horizontalMargin: 16,
-                        dataRowMinHeight: 50,
-                        dataRowMaxHeight: 60,
-                        columns: headers
-                            .map(
-                              (header) => DataColumn(
-                            label: Padding(
-                              padding:
-                              const EdgeInsets.symmetric(vertical: 8.0),
-                              child: Text(header, textAlign: TextAlign.center),
-                            ),
-                          ),
-                        )
-                            .toList(),
-                        rows: _filteredTableData.map(
-                              (data) {
-                            return DataRow(
-                              cells: headers
-                                  .map(
-                                    (header) => DataCell(
-                                  Container(
-                                    alignment: Alignment.center,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 10, horizontal: 8),
-                                    child: Text(
-                                      data[header] ?? 'N/A',
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                ),
-                              )
-                                  .toList(),
-                            );
-                          },
-                        ).toList(),
-                      ),
+              _buildEntryPassSection(),
+              SizedBox(height: ResponsiveUtil.scaledSize(context, 24)),
+              _buildShowTimeSection(),
+              SizedBox(height: ResponsiveUtil.scaledSize(context, 24)),
+              _buildControlsSection(),
+              SizedBox(height: ResponsiveUtil.scaledSize(context, 24)),
+              _buildBookingTable(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  Widget _buildEntryPassSection() {
+    return Advanced3DCard(
+      enableGlassMorphism: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle(
+            "Entry Pass Detail",
+            Icons.confirmation_num_outlined,
+            SparshTheme.primaryBlue,
+          ),
+          SizedBox(height: ResponsiveUtil.scaledSize(context, 16)),
+          _buildAdvanced3DTextField(
+            controller: _passController,
+            hintText: "Entry Pass No",
+            keyboardType: TextInputType.number,
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2);
+  }
+
+  Widget _buildShowTimeSection() {
+    return Advanced3DCard(
+      enableGlassMorphism: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle(
+            "Select Show Time & Movie",
+            Icons.theaters_outlined,
+            SparshTheme.primaryBlue,
+          ),
+          SizedBox(height: ResponsiveUtil.scaledSize(context, 16)),
+          _buildAdvanced3DDropdown(
+            hintText: "Select Show Time & Movie",
+            items: _movieShowTimes,
+            selectedValue: _selectedMovieShowTime,
+            onChanged: (value) {
+              setState(() {
+                _selectedMovieShowTime = value;
+                _filterTableData();
+              });
+            },
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 600.ms, delay: 100.ms).slideY(begin: 0.2);
+  }
+
+  Widget _buildControlsSection() {
+    return Advanced3DCard(
+      enableGlassMorphism: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle(
+            "Filter Options",
+            Icons.filter_list_outlined,
+            SparshTheme.primaryBlue,
+          ),
+          SizedBox(height: ResponsiveUtil.scaledSize(context, 16)),
+          _buildAdvanced3DDropdown(
+            hintText: "Rows per page",
+            items: _rowsOptions,
+            selectedValue: _selectedRowsOption,
+            onChanged: (newValue) {
+              setState(() {
+                _selectedRowsOption = newValue!;
+                _filterTableData();
+              });
+            },
+          ),
+          SizedBox(height: ResponsiveUtil.scaledSize(context, 16)),
+          _buildAdvanced3DTextField(
+            controller: _searchController,
+            hintText: "Search bookings...",
+            suffixIcon: Icons.search,
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 600.ms, delay: 200.ms).slideY(begin: 0.2);
+  }
+
+  Widget _buildBookingTable() {
+    return Advanced3DCard(
+      enableGlassMorphism: false,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowColor: WidgetStateProperty.all(
+            SparshTheme.primaryBlue.withOpacity(0.1),
+          ),
+          headingTextStyle: SparshTypography.labelLarge.copyWith(
+            color: SparshTheme.primaryBlue,
+          ),
+          dataRowColor: WidgetStateProperty.resolveWith<Color?>(
+            (Set<WidgetState> states) {
+              if (states.contains(WidgetState.selected)) {
+                return SparshTheme.primaryBlue.withOpacity(0.1);
+              }
+              return SparshTheme.cardBackground;
+            },
+          ),
+          dataTextStyle: SparshTypography.bodyMedium,
+          border: TableBorder(
+            horizontalInside: BorderSide(
+              color: SparshTheme.borderGrey,
+              width: 1,
+            ),
+            borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+          ),
+          columnSpacing: ResponsiveUtil.scaledSize(context, 20),
+          horizontalMargin: ResponsiveUtil.scaledSize(context, 16),
+          dataRowMinHeight: ResponsiveUtil.scaledSize(context, 50),
+          dataRowMaxHeight: ResponsiveUtil.scaledSize(context, 60),
+          columns: headers
+              .map(
+                (header) => DataColumn(
+                  label: Padding(
+                    padding: ResponsiveUtil.scaledPadding(context, vertical: 8),
+                    child: Text(
+                      header,
+                      textAlign: TextAlign.center,
+                      style: SparshTypography.labelLarge,
                     ),
                   ),
                 ),
-              ),
-            ],
+              )
+              .toList(),
+          rows: _filteredTableData.map(
+            (data) {
+              return DataRow(
+                cells: headers
+                    .map(
+                      (header) => DataCell(
+                        Container(
+                          alignment: Alignment.center,
+                          padding: ResponsiveUtil.scaledPadding(context,
+                              vertical: 10, horizontal: 8),
+                          child: Text(
+                            data[header] ?? 'N/A',
+                            textAlign: TextAlign.center,
+                            style: SparshTypography.bodyMedium,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              );
+            },
+          ).toList(),
+        ),
+      ),
+    ).animate().fadeIn(duration: 600.ms, delay: 300.ms).slideY(begin: 0.2);
+  }
+
+  Widget _buildSectionTitle(String title, IconData icon, Color iconColor) {
+    return Row(
+      children: [
+        Icon(icon, color: iconColor, size: ResponsiveUtil.scaledSize(context, 24)),
+        SizedBox(width: ResponsiveUtil.scaledSize(context, 12)),
+        Text(
+          title,
+          style: SparshTypography.heading6.copyWith(color: iconColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdvanced3DTextField({
+    required TextEditingController controller,
+    required String hintText,
+    TextInputType keyboardType = TextInputType.text,
+    IconData? suffixIcon,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: SparshTheme.cardBackground,
+        borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+        boxShadow: SparshShadows.sm,
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        style: SparshTypography.bodyMedium,
+        decoration: InputDecoration(
+          contentPadding: ResponsiveUtil.scaledPadding(context,
+              horizontal: 20, vertical: 18),
+          hintText: hintText,
+          hintStyle: SparshTypography.bodyMedium.copyWith(
+            color: SparshTheme.textTertiary,
           ),
+          border: InputBorder.none,
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+            borderSide: BorderSide(
+              color: SparshTheme.primaryBlue,
+              width: 2,
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+            borderSide: BorderSide(
+              color: SparshTheme.borderGrey,
+              width: 1,
+            ),
+          ),
+          suffixIcon: suffixIcon != null
+              ? Icon(suffixIcon, color: SparshTheme.textTertiary)
+              : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdvanced3DDropdown({
+    required String hintText,
+    required List<String> items,
+    required String? selectedValue,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      padding: ResponsiveUtil.scaledPadding(context, horizontal: 20, vertical: 4),
+      decoration: BoxDecoration(
+        color: SparshTheme.cardBackground,
+        borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+        boxShadow: SparshShadows.sm,
+        border: Border.all(
+          color: SparshTheme.borderGrey,
+          width: 1,
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedValue,
+          hint: Text(
+            hintText,
+            style: SparshTypography.bodyMedium.copyWith(
+              color: SparshTheme.textTertiary,
+            ),
+          ),
+          icon: Icon(
+            Icons.keyboard_arrow_down,
+            color: SparshTheme.textSecondary,
+          ),
+          isExpanded: true,
+          style: SparshTypography.bodyMedium,
+          dropdownColor: SparshTheme.cardBackground,
+          items: items
+              .map(
+                (item) => DropdownMenuItem(
+                  value: item,
+                  child: Text(item, style: SparshTypography.bodyMedium),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
         ),
       ),
     );
