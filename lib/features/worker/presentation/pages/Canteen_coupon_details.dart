@@ -1,30 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
-import 'package:learning2/core/constants/fonts.dart';
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Canteen Coupon Detail Employee',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      home: const CanteenCouponDetails(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/components/advanced_3d_components.dart';
+import '../../../../core/utils/responsive_util.dart';
 
 class CanteenCouponDetails extends StatefulWidget {
   const CanteenCouponDetails({super.key});
@@ -33,11 +12,16 @@ class CanteenCouponDetails extends StatefulWidget {
   State<CanteenCouponDetails> createState() => _CanteenCouponDetailsState();
 }
 
-class _CanteenCouponDetailsState extends State<CanteenCouponDetails> {
+class _CanteenCouponDetailsState extends State<CanteenCouponDetails> 
+    with TickerProviderStateMixin {
   DateTime fromDate = DateTime.now();
   DateTime toDate = DateTime.now();
   String couponType = 'Select';
   String userType = 'Personnel';
+  
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  
   final ScrollController _horizontalHeaderScrollController = ScrollController();
   final ScrollController _horizontalBodyScrollController = ScrollController();
   final ScrollController _verticalScrollController = ScrollController();
@@ -47,12 +31,24 @@ class _CanteenCouponDetailsState extends State<CanteenCouponDetails> {
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+    
     _generateDummyData();
-    // Sync scroll positions after the frame is rendered
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _horizontalHeaderScrollController.addListener(_syncHeaderScroll);
       _horizontalBodyScrollController.addListener(_syncBodyScroll);
     });
+    _animationController.forward();
   }
 
   void _syncHeaderScroll() {
@@ -96,6 +92,7 @@ class _CanteenCouponDetailsState extends State<CanteenCouponDetails> {
 
   @override
   void dispose() {
+    _animationController.dispose();
     _horizontalHeaderScrollController.dispose();
     _horizontalBodyScrollController.dispose();
     _verticalScrollController.dispose();
@@ -127,177 +124,235 @@ class _CanteenCouponDetailsState extends State<CanteenCouponDetails> {
     final totalWidth = columnWidths.reduce((sum, width) => sum + width);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Canteen Coupon Detail'),
-        centerTitle: true,
-        elevation: 0,
+      backgroundColor: SparshTheme.scaffoldBackground,
+      appBar: Advanced3DAppBar(
+        title: Text(
+          'Canteen Coupon Detail',
+          style: SparshTypography.heading5.copyWith(color: Colors.white),
+        ),
+        backgroundColor: SparshTheme.primaryBlue,
+        enableGlassMorphism: false,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Padding(
+          padding: ResponsiveUtil.scaledPadding(context, all: 16),
+          child: Column(
+            children: [
+              _buildFilterSection(),
+              SizedBox(height: ResponsiveUtil.scaledSize(context, 16)),
+              _buildStatusCard(),
+              SizedBox(height: ResponsiveUtil.scaledSize(context, 16)),
+              _buildSearchSection(),
+              SizedBox(height: ResponsiveUtil.scaledSize(context, 16)),
+              _buildDataTable(columnWidths, totalWidth),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterSection() {
+    return Advanced3DCard(
+      enableGlassMorphism: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.filter_list,
+                color: SparshTheme.primaryBlue,
+                size: ResponsiveUtil.scaledSize(context, 24),
+              ),
+              SizedBox(width: ResponsiveUtil.scaledSize(context, 8)),
+              Text(
+                'Filter Options',
+                style: SparshTypography.heading6.copyWith(
+                  color: SparshTheme.primaryBlue,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: ResponsiveUtil.scaledSize(context, 16)),
+          Row(
+            children: [
+              Expanded(
+                child: _buildDateField(
+                  context,
+                  'From Date',
+                  fromDate,
+                  true,
+                ),
+              ),
+              SizedBox(width: ResponsiveUtil.scaledSize(context, 16)),
+              Expanded(
+                child: _buildDateField(
+                  context,
+                  'To Date',
+                  toDate,
+                  false,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: ResponsiveUtil.scaledSize(context, 16)),
+          Row(
+            children: [
+              Expanded(
+                child: _buildDropdownField(
+                  'Official/Personnel',
+                  userType,
+                  ['Official', 'Personnel'],
+                  (value) => setState(() => userType = value!),
+                ),
+              ),
+              SizedBox(width: ResponsiveUtil.scaledSize(context, 16)),
+              Expanded(
+                child: _buildDropdownField(
+                  'Coupon Type',
+                  couponType,
+                  ['Select', 'Food', 'Tea', 'Namkeen'],
+                  (value) => setState(() => couponType = value!),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2);
+  }
+
+  Widget _buildStatusCard() {
+    return Advanced3DCard(
+      enableGlassMorphism: false,
+      backgroundColor: SparshTheme.primaryBlue.withOpacity(0.1),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: SparshTheme.primaryBlue,
+                size: ResponsiveUtil.scaledSize(context, 24),
+              ),
+              SizedBox(width: ResponsiveUtil.scaledSize(context, 8)),
+              Text(
+                'Status Information',
+                style: SparshTypography.heading6.copyWith(
+                  color: SparshTheme.primaryBlue,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: ResponsiveUtil.scaledSize(context, 16)),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatusItem(
+                  'Total Records',
+                  '${_dummyData.length}',
+                  SparshTheme.primaryBlue,
+                ),
+              ),
+              Expanded(
+                child: _buildStatusItem(
+                  'Food Coupons',
+                  '${_dummyData.where((e) => e['food'] == 'Yes').length}',
+                  SparshTheme.successGreen,
+                ),
+              ),
+              Expanded(
+                child: _buildStatusItem(
+                  'Tea Coupons',
+                  '${_dummyData.where((e) => e['tea'] == 'Yes').length}',
+                  SparshTheme.warningOrange,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 600.ms, delay: 100.ms).slideY(begin: 0.2);
+  }
+
+  Widget _buildSearchSection() {
+    return Advanced3DCard(
+      enableGlassMorphism: false,
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          labelText: 'Search records...',
+          hintText: 'Enter employee name or code',
+          prefixIcon: Icon(Icons.search, color: SparshTheme.primaryBlue),
+          labelStyle: SparshTypography.bodyMedium.copyWith(
+            color: SparshTheme.textSecondary,
+          ),
+          hintStyle: SparshTypography.bodyMedium.copyWith(
+            color: SparshTheme.textTertiary,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+            borderSide: BorderSide(color: SparshTheme.borderGrey),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+            borderSide: BorderSide(color: SparshTheme.primaryBlue, width: 2),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+            borderSide: BorderSide(color: SparshTheme.borderGrey),
+          ),
+          filled: true,
+          fillColor: SparshTheme.cardBackground,
+          contentPadding: ResponsiveUtil.scaledPadding(context, all: 16),
+        ),
+        style: SparshTypography.bodyMedium,
+      ),
+    ).animate().fadeIn(duration: 600.ms, delay: 200.ms).slideY(begin: 0.2);
+  }
+
+  Widget _buildDataTable(List<double> columnWidths, double totalWidth) {
+    return Expanded(
+      child: Advanced3DCard(
+        enableGlassMorphism: false,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Filter Section
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    // Date filters row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDateField(
-                            context,
-                            'From Date',
-                            fromDate,
-                            true,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildDateField(
-                            context,
-                            'To Date',
-                            toDate,
-                            false,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Dropdown filters row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            'Official/Personnel',
-                            userType,
-                            ['Official', 'Personnel'],
-                                (value) => setState(() => userType = value!),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildDropdownField(
-                            'Coupon Type',
-                            couponType,
-                            ['Select', 'Food', 'Tea', 'Namkeen'],
-                                (value) => setState(() => couponType = value!),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+            Row(
+              children: [
+                Icon(
+                  Icons.table_chart,
+                  color: SparshTheme.primaryBlue,
+                  size: ResponsiveUtil.scaledSize(context, 24),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Status Card
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, color: Colors.blue, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'As on ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
+                SizedBox(width: ResponsiveUtil.scaledSize(context, 8)),
+                Text(
+                  'Coupon Records',
+                  style: SparshTypography.heading6.copyWith(
+                    color: SparshTheme.primaryBlue,
+                  ),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(height: 16),
-            // Search Bar
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Table Section
+            SizedBox(height: ResponsiveUtil.scaledSize(context, 16)),
             Expanded(
-              child: Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: SparshTheme.borderGrey),
+                  borderRadius: BorderRadius.circular(SparshBorderRadius.md),
                 ),
                 child: Column(
                   children: [
-                    // Table Header (NO Scrollbar)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.85),
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(12),
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: SingleChildScrollView(
-                        controller: _horizontalHeaderScrollController,
-                        scrollDirection: Axis.horizontal,
-                        physics: const ClampingScrollPhysics(),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: totalWidth,
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('F No', columnWidths[0]),
-                                  _buildHeaderCell('Document Date', columnWidths[1]),
-                                  _buildHeaderCell('Scanned By', columnWidths[2]),
-                                  _buildHeaderCell('Employee Code', columnWidths[3]),
-                                  _buildHeaderCell('Employee Name', columnWidths[4]),
-                                  _buildHeaderCell('Dept/Cont Code', columnWidths[5]),
-                                  _buildHeaderCell('Dept/Cont Name', columnWidths[6]),
-                                  _buildHeaderCell('Food', columnWidths[7]),
-                                  _buildHeaderCell('Tea', columnWidths[8]),
-                                  _buildHeaderCell('Namkeen', columnWidths[9]),
-                                  _buildHeaderCell('Packed Item', columnWidths[10], isLast: true),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Table Body (NO Scrollbar)
+                    _buildTableHeader(columnWidths, totalWidth),
                     Expanded(
-                      child: _dummyData.isEmpty
-                          ? _buildEmptyState()
-                          : SingleChildScrollView(
-                        controller: _horizontalBodyScrollController,
-                        scrollDirection: Axis.horizontal,
-                        physics: const ClampingScrollPhysics(),
-                        child: SizedBox(
-                          width: totalWidth,
-                          child: SingleChildScrollView(
-                            controller: _verticalScrollController,
-                            scrollDirection: Axis.vertical,
-                            physics: const ClampingScrollPhysics(),
-                            child: Column(
-                              children: [
-                                ..._dummyData.map((data) => _buildDataRow(data, columnWidths)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                      child: _buildTableBody(columnWidths, totalWidth),
                     ),
                   ],
                 ),
@@ -305,158 +360,235 @@ class _CanteenCouponDetailsState extends State<CanteenCouponDetails> {
             ),
           ],
         ),
+      ).animate().fadeIn(duration: 600.ms, delay: 300.ms).slideY(begin: 0.2),
+    );
+  }
+
+  Widget _buildStatusItem(String label, String value, Color color) {
+    return Container(
+      padding: ResponsiveUtil.scaledPadding(context, all: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: SparshTypography.heading5.copyWith(
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: ResponsiveUtil.scaledSize(context, 4)),
+          Text(
+            label,
+            style: SparshTypography.bodySmall.copyWith(
+              color: SparshTheme.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildDateField(
-      BuildContext context, String label, DateTime date, bool isFromDate) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: Fonts.bodyBold,
-        ),
-        const SizedBox(height: 4),
-        InkWell(
-          onTap: () => _selectDate(context, isFromDate),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey),
-              borderRadius: BorderRadius.circular(8),
+    BuildContext context,
+    String label,
+    DateTime date,
+    bool isFromDate,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: SparshTheme.cardBackground,
+        borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+        boxShadow: SparshShadows.sm,
+      ),
+      child: InkWell(
+        onTap: () => _selectDate(context, isFromDate),
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            labelStyle: SparshTypography.bodyMedium.copyWith(
+              color: SparshTheme.textSecondary,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(DateFormat('dd/MM/yyyy').format(date)),
-                const Icon(Icons.calendar_today, size: 18, color: Colors.blue),
-              ],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+              borderSide: BorderSide(color: SparshTheme.borderGrey),
             ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+              borderSide: BorderSide(color: SparshTheme.borderGrey),
+            ),
+            filled: true,
+            fillColor: SparshTheme.cardBackground,
+            contentPadding: ResponsiveUtil.scaledPadding(context, all: 16),
+          ),
+          child: Text(
+            DateFormat('dd/MM/yyyy').format(date),
+            style: SparshTypography.bodyMedium,
           ),
         ),
-      ],
+      ),
     );
   }
-
 
   Widget _buildDropdownField(
-      String label,
-      String value,
-      List<String> items,
-      ValueChanged<String?> onChanged,
-      ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: Fonts.bodyBold,
-        ),
-        const SizedBox(height: 4),
-        DropdownButtonFormField<String>(
-          value: value,
-          decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+    String label,
+    String value,
+    List<String> items,
+    ValueChanged<String?> onChanged,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: SparshTheme.cardBackground,
+        borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+        boxShadow: SparshShadows.sm,
+      ),
+      child: DropdownButtonFormField<String>(
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: SparshTypography.bodyMedium.copyWith(
+            color: SparshTheme.textSecondary,
           ),
-          items: items.map((String value) {
-            return DropdownMenuItem<String>(
-              value: value,
-              child: Text(value),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+            borderSide: BorderSide(color: SparshTheme.borderGrey),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+            borderSide: BorderSide(color: SparshTheme.primaryBlue, width: 2),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+            borderSide: BorderSide(color: SparshTheme.borderGrey),
+          ),
+          filled: true,
+          fillColor: SparshTheme.cardBackground,
+          contentPadding: ResponsiveUtil.scaledPadding(context, all: 16),
+        ),
+        value: value,
+        style: SparshTypography.bodyMedium,
+        dropdownColor: SparshTheme.cardBackground,
+        items: items
+            .map((item) => DropdownMenuItem(
+                  value: item,
+                  child: Text(item, style: SparshTypography.bodyMedium),
+                ))
+            .toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildTableHeader(List<double> columnWidths, double totalWidth) {
+    final headers = [
+      'S.No',
+      'Doc Date',
+      'Scanned By',
+      'Emp Code',
+      'Employee Name',
+      'Dept Code',
+      'Department Name',
+      'Food',
+      'Tea',
+      'Namkeen',
+      'Packed'
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: SparshTheme.primaryBlue.withOpacity(0.1),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(SparshBorderRadius.md),
+          topRight: Radius.circular(SparshBorderRadius.md),
+        ),
+      ),
+      padding: ResponsiveUtil.scaledPadding(context, vertical: 12),
+      child: SingleChildScrollView(
+        controller: _horizontalHeaderScrollController,
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: headers.asMap().entries.map((entry) {
+            final index = entry.key;
+            final header = entry.value;
+            return Container(
+              width: columnWidths[index],
+              alignment: Alignment.center,
+              child: Text(
+                header,
+                style: SparshTypography.labelLarge.copyWith(
+                  color: SparshTheme.primaryBlue,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
             );
           }).toList(),
-          onChanged: onChanged,
         ),
-      ],
-    );
-  }
-
-  Widget _buildHeaderCell(String text, double width, {bool isLast = false}) {
-    return Container(
-      width: width,
-      decoration: BoxDecoration(
-        border: Border(
-          right: isLast ? BorderSide.none : const BorderSide(color: Colors.white, width: 1.2),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      alignment: Alignment.center,
-      child: Text(
-        text,
-        style: Fonts.bodyBold.copyWith(color: Colors.white),
-        overflow: TextOverflow.visible,
-        softWrap: true,
-        textAlign: TextAlign.center,
-        maxLines: 2, // Allow header text to wrap if needed
       ),
     );
   }
 
-  Widget _buildDataRow(Map<String, dynamic> data, List<double> columnWidths) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.grey.shade300,
-            width: 1,
+  Widget _buildTableBody(List<double> columnWidths, double totalWidth) {
+    return Scrollbar(
+      controller: _verticalScrollController,
+      child: SingleChildScrollView(
+        controller: _verticalScrollController,
+        child: SingleChildScrollView(
+          controller: _horizontalBodyScrollController,
+          scrollDirection: Axis.horizontal,
+          child: Column(
+            children: _dummyData.asMap().entries.map((entry) {
+              final index = entry.key;
+              final data = entry.value;
+              final isEven = index % 2 == 0;
+              
+              return Container(
+                decoration: BoxDecoration(
+                  color: isEven ? SparshTheme.cardBackground : SparshTheme.scaffoldBackground,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: SparshTheme.borderGrey,
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    _buildTableCell('${index + 1}', columnWidths[0]),
+                    _buildTableCell(data['docDate'], columnWidths[1]),
+                    _buildTableCell(data['scannedBy'], columnWidths[2]),
+                    _buildTableCell(data['empCode'], columnWidths[3]),
+                    _buildTableCell(data['empName'], columnWidths[4]),
+                    _buildTableCell(data['deptCode'], columnWidths[5]),
+                    _buildTableCell(data['deptName'], columnWidths[6]),
+                    _buildTableCell(data['food'], columnWidths[7]),
+                    _buildTableCell(data['tea'], columnWidths[8]),
+                    _buildTableCell(data['namkeen'], columnWidths[9]),
+                    _buildTableCell(data['packed'], columnWidths[10]),
+                  ],
+                ),
+              );
+            }).toList(),
           ),
         ),
       ),
-      child: Row(
-        children: [
-          _buildDataCell(data['fNo'], columnWidths[0]),
-          _buildDataCell(data['docDate'], columnWidths[1]),
-          _buildDataCell(data['scannedBy'], columnWidths[2]),
-          _buildDataCell(data['empCode'], columnWidths[3]),
-          _buildDataCell(data['empName'], columnWidths[4]),
-          _buildDataCell(data['deptCode'], columnWidths[5]),
-          _buildDataCell(data['deptName'], columnWidths[6]),
-          _buildDataCell(data['food'], columnWidths[7]),
-          _buildDataCell(data['tea'], columnWidths[8]),
-          _buildDataCell(data['namkeen'], columnWidths[9]),
-          _buildDataCell(data['packed'], columnWidths[10], isLast: true),
-        ],
-      ),
     );
   }
 
-  Widget _buildDataCell(String text, double width, {bool isLast = false}) {
+  Widget _buildTableCell(String text, double width) {
     return Container(
       width: width,
-      decoration: BoxDecoration(
-        border: Border(
-          right: isLast ? BorderSide.none : const BorderSide(color: Color(0xFFE0E0E0), width: 1),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: ResponsiveUtil.scaledPadding(context, all: 12),
       alignment: Alignment.center,
       child: Text(
         text,
-        overflow: TextOverflow.visible,
-        softWrap: true,
+        style: SparshTypography.bodyMedium,
         textAlign: TextAlign.center,
-        style: Fonts.body,
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.table_rows_outlined, size: 48, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          const Text(
-            'No data available in table',
-            style: Fonts.body,
-          ),
-        ],
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
