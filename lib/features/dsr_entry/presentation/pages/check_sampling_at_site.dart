@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -32,51 +31,42 @@ class CheckSamplingAtSite extends StatefulWidget {
 
 class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
   // ─── State & Controllers ────────────────────────────────────────────────────
-  // Dynamic dropdown state
-  List<Map<String, String>> _processTypes = [{'code': 'Select', 'description': 'Select'}];
-  String? _selectedProcessTypeDescription = 'Select';
-  String? _selectedProcessTypeCode;
+  // Process type dropdown state
+  String? _processItem = 'Select';
+  List<String> _processdropdownItems = ['Select'];
   bool _isLoadingProcessTypes = true;
+  String? _processTypeError;
 
-    // Geolocation
+  // Document-number dropdown state
+  bool _loadingDocs = false;
+  List<String> _documentNumbers = [];
+  String? _selectedDocuNumb;
+
+  // Geolocation
   Position? _currentPosition;
 
+  // Product, quality, status dropdowns
   List<String> _productNames = ['Select'];
   String? _selectedProductName = 'Select';
   bool _isLoadingProductNames = true;
 
   List<String> _qualityOptions = ['Select'];
-  final String? _selectedQuality = 'Select';
+  String? _qualityItem = 'Select';
   bool _isLoadingQualityOptions = true;
 
   List<String> _statusOptions = ['Select'];
-  final String? _selectedStatus = 'Select';
+  String? _statusItem = 'Select';
   bool _isLoadingStatusOptions = true;
 
-  String? _processItem = 'Select';
-  final _processItems = ['Select', 'Add', 'Update'];
-
+  // Text controllers
   final _dateController = TextEditingController();
   final _reportDateController = TextEditingController();
   DateTime? _selectedDate;
   DateTime? _selectedReportDate;
 
   final _siteController = TextEditingController();
-  final _productController = TextEditingController();
   final _potentialController = TextEditingController();
   final _applicatorController = TextEditingController();
-
-  String? _qualityItem = 'Select';
-  final _qualityItems = ['Select', 'Average', 'Medium', 'Good'];
-
-  String? _statusItem = 'Select';
-  final _statusItems = [
-    'Select',
-    'Yet To be Checked By Purchaser',
-    'Approved',
-    'Rejected',
-  ];
-
   final _contactNameController = TextEditingController();
   final _mobileController = TextEditingController();
 
@@ -91,7 +81,7 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
   @override
   void initState() {
     super.initState();
-        _initGeolocation();
+    _initGeolocation();
     _loadInitialDocumentNumber();
     _fetchProcessTypes();
     _fetchProductNames();
@@ -134,49 +124,60 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
     }
   }
 
+  // Fetch process types from backend
   Future<void> _fetchProcessTypes() async {
-    setState(() { _isLoadingProcessTypes = true; });
+    setState(() {
+      _isLoadingProcessTypes = true;
+      _processTypeError = null;
+    });
     try {
-      final url = Uri.parse(ApiConstants.url(ApiConstants.getProcessTypes));
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getProcessTypes');
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        List processTypesList = [];
         if (data is List) {
-          final processTypes = [
-            {'code': 'Select', 'description': 'Select'},
-            ...data.map<Map<String, String>>((item) => {
-              'code': item['Code']?.toString() ?? item['code']?.toString() ?? '',
-              'description': item['Description']?.toString() ?? item['description']?.toString() ?? '',
-            }).where((item) => item['code']!.isNotEmpty && item['description']!.isNotEmpty)
-          ];
-          setState(() {
-            _processTypes = processTypes;
-            _isLoadingProcessTypes = false;
-          });
-        } else {
-          setState(() {
-            _processTypes = [{'code': 'Select', 'description': 'Select'}];
-            _isLoadingProcessTypes = false;
-          });
+          processTypesList = data;
+        } else if (data is Map &&
+            (data['ProcessTypes'] != null || data['processTypes'] != null)) {
+          processTypesList =
+              (data['ProcessTypes'] ?? data['processTypes']) as List;
         }
-      } else {
+        final processTypes = processTypesList
+            .map<String>((type) {
+              if (type is Map) {
+                return type['Description']?.toString() ??
+                    type['description']?.toString() ??
+                    '';
+              } else {
+                return type.toString();
+              }
+            })
+            .where((desc) => desc.isNotEmpty)
+            .toList();
         setState(() {
-          _processTypes = [{'code': 'Select', 'description': 'Select'}];
+          _processdropdownItems = ['Select', ...processTypes];
+          _processItem = 'Select';
           _isLoadingProcessTypes = false;
         });
+      } else {
+        throw Exception('Failed to load process types.');
       }
     } catch (e) {
       setState(() {
-        _processTypes = [{'code': 'Select', 'description': 'Select'}];
+        _processdropdownItems = ['Select'];
+        _processItem = 'Select';
         _isLoadingProcessTypes = false;
+        _processTypeError = 'Failed to load process types.';
       });
     }
   }
 
+  // Restore _fetchProductNames
   Future<void> _fetchProductNames() async {
     setState(() { _isLoadingProductNames = true; });
     try {
-      final url = Uri.parse(ApiConstants.url(ApiConstants.getProductOptions));
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getProductOptions');
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -199,10 +200,11 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
     }
   }
 
+  // Restore _fetchQualityOptions
   Future<void> _fetchQualityOptions() async {
     setState(() { _isLoadingQualityOptions = true; });
     try {
-      final url = Uri.parse(ApiConstants.url(ApiConstants.getQualityOptions));
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getQualityOptions');
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -225,10 +227,11 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
     }
   }
 
+  // Restore _fetchStatusOptions
   Future<void> _fetchStatusOptions() async {
     setState(() { _isLoadingStatusOptions = true; });
     try {
-      final url = Uri.parse(ApiConstants.url(ApiConstants.getStatusOptions));
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getStatusOptions');
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -251,12 +254,79 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
     }
   }
 
+  // Fetch document numbers for Update
+  Future<void> _fetchDocumentNumbers() async {
+    setState(() {
+      _loadingDocs = true;
+      _documentNumbers = [];
+      _selectedDocuNumb = null;
+    });
+    final uri = Uri.parse(
+      'http://192.168.36.25/api/DsrTry/getDocumentNumbers?dsrParam=52' // Use correct param for this activity
+    );
+    try {
+      final resp = await http.get(uri);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as List;
+        setState(() {
+          _documentNumbers = data
+            .map((e) {
+              return (e['DocuNumb']
+                   ?? e['docuNumb']
+                   ?? e['DocumentNumber']
+                   ?? e['documentNumber']
+                   ?? '').toString();
+            })
+            .where((s) => s.isNotEmpty)
+            .toList();
+        });
+      }
+    } catch (_) {
+      // ignore errors
+    } finally {
+      setState(() { _loadingDocs = false; });
+    }
+  }
+
+  // Fetch details for a document number and populate fields
+  Future<void> _fetchAndPopulateDetails(String docuNumb) async {
+    final uri = Uri.parse('http://192.168.36.25/api/DsrTry/getDsrEntry?docuNumb=$docuNumb');
+    try {
+      final resp = await http.get(uri);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        setState(() {
+          _siteController.text = data['dsrRem01'] ?? '';
+          _selectedProductName = data['dsrRem02'] ?? 'Select';
+          _potentialController.text = data['dsrRem03'] ?? '';
+          _applicatorController.text = data['dsrRem04'] ?? '';
+          _qualityItem = data['dsrRem05'] ?? 'Select';
+          _statusItem = data['dsrRem06'] ?? 'Select';
+          _contactNameController.text = data['dsrRem07'] ?? '';
+          _mobileController.text = data['dsrRem08'] ?? '';
+          // Dates
+          if (data['SubmissionDate'] != null) {
+            _selectedDate = DateTime.tryParse(data['SubmissionDate']);
+            if (_selectedDate != null) {
+              _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate!);
+            }
+          }
+          if (data['ReportDate'] != null) {
+            _selectedReportDate = DateTime.tryParse(data['ReportDate']);
+            if (_selectedReportDate != null) {
+              _reportDateController.text = DateFormat('yyyy-MM-dd').format(_selectedReportDate!);
+            }
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     _dateController.dispose();
     _reportDateController.dispose();
     _siteController.dispose();
-    _productController.dispose();
     _potentialController.dispose();
     _applicatorController.dispose();
     _contactNameController.dispose();
@@ -368,24 +438,15 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
     if (_selectedImages.length > 1) setState(() => _selectedImages.removeAt(idx));
   }
 
+  // SUBMIT / UPDATE
   Future<void> _onSubmit({required bool exitAfter}) async {
     if (!_formKey.currentState!.validate()) return;
-
-    // ensure we have location
-    if (_currentPosition == null) {
-      await _initGeolocation();
-    }
-
+    if (_currentPosition == null) await _initGeolocation();
 
     final dsrData = {
       'ActivityType': 'Visit to Get / Check Sampling at Site',
-      'ProcessType': _selectedProcessTypeCode ?? '',
       'SubmissionDate': _selectedDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
       'ReportDate': _selectedReportDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
-      // 'CreateId': 'SYSTEM',
-      // 'AreaCode': _siteController.text,
-      // 'Purchaser': _productController.text,
-      // 'PurchaserCode': '',
       'dsrRem01': _siteController.text,
       'dsrRem02': _selectedProductName ?? '',
       'dsrRem03': _potentialController.text,
@@ -394,51 +455,80 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
       'dsrRem06': (_statusItem != null && _statusItem != 'Select') ? _statusItem : '',
       'dsrRem07': _contactNameController.text,
       'dsrRem08': _mobileController.text,
-      // 'SupportingDocuments': _selectedImages.map((file) => file?.path).toList(),
-      // Geography
       'latitude': _currentPosition?.latitude.toString() ?? '',
       'longitude': _currentPosition?.longitude.toString() ?? '',
+      'DsrParam': '52',
+      'DocuNumb': _processItem == 'Update' ? _selectedDocuNumb : null,
+      'ProcessType': _processItem == 'Update' ? 'U' : 'A',
+      'CreateId': '2948',
     };
-    print('Prepared DSR Data: $dsrData'); // DEBUG
 
     try {
-      await submitDsrEntry(dsrData);
+      final url = Uri.parse(
+        'http://192.168.36.25/api/DsrTry/' + (_processItem == 'Update' ? 'update' : '')
+      );
+      final resp = _processItem == 'Update'
+          ? await http.put(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(dsrData),
+            )
+          : await http.post(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(dsrData),
+            );
+
+      final success = (_processItem == 'Update' && resp.statusCode == 204) ||
+                      (_processItem != 'Update' && resp.statusCode == 201);
+
+      if (!success) {
+        print('Error submitting DSR: Status  [33m [1m${resp.statusCode} [0m\nBody: ${resp.body}');
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(exitAfter
-              ? 'Submitted successfully. Exiting...'
-              : 'Submitted successfully. Ready for new entry.'),
-          backgroundColor: Colors.green,
+          content: Text(success
+              ? exitAfter
+                  ? '${_processItem == 'Update' ? 'Updated' : 'Submitted'} successfully. Exiting...'
+                  : '${_processItem == 'Update' ? 'Updated' : 'Submitted'} successfully. Ready for new entry.'
+              : 'Error: ${resp.body}'),
+          backgroundColor: success ? Colors.green : Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
-      if (exitAfter) {
-        Navigator.of(context).pop();
-      } else {
-        _formKey.currentState!.reset();
-        setState(() {
-          _processItem = 'Select';
-          _selectedDate = null;
-          _selectedReportDate = null;
-          _dateController.clear();
-          _reportDateController.clear();
-          _siteController.clear();
-          _productController.clear();
-          _potentialController.clear();
-          _applicatorController.clear();
-          _qualityItem = 'Select';
-          _statusItem = 'Select';
-          _contactNameController.clear();
-          _mobileController.clear();
-          _selectedImages
-            ..clear()
-            ..add(null);
-        });
+
+      if (success) {
+        if (exitAfter) {
+          Navigator.of(context).pop();
+        } else {
+          _formKey.currentState!.reset();
+          setState(() {
+            _processItem = 'Select';
+            _selectedDocuNumb = null;
+            _dateController.clear();
+            _reportDateController.clear();
+            _selectedDate = null;
+            _selectedReportDate = null;
+            _siteController.clear();
+            _selectedProductName = 'Select';
+            _potentialController.clear();
+            _applicatorController.clear();
+            _qualityItem = 'Select';
+            _statusItem = 'Select';
+            _contactNameController.clear();
+            _mobileController.clear();
+            _selectedImages
+              ..clear()
+              ..add(null);
+          });
+        }
       }
     } catch (e) {
+      print('Exception during submit: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Submission failed: ${e.toString()}'),
+          content: Text('Exception: $e'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -640,12 +730,12 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
 
   void _onProcessTypeChanged(String? desc) {
     setState(() {
-      _selectedProcessTypeDescription = desc;
-      final selected = _processTypes.firstWhere(
-        (item) => item['description'] == desc,
-        orElse: () => {'code': '', 'description': ''},
-      );
-      _selectedProcessTypeCode = selected['code'];
+      // _selectedProcessTypeDescription = desc; // Removed
+      // final selected = _processTypes.firstWhere( // Removed
+      //   (item) => item['description'] == desc, // Removed
+      //   orElse: () => {'code': '', 'description': ''}, // Removed
+      // ); // Removed
+      // _selectedProcessTypeCode = selected['code']; // Removed
     });
   }
 
@@ -675,92 +765,65 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Process Section
-              _sectionContainer(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLabel('Process Type'),
-                    Container(
-                      height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade300, width: 1),
-                        color: Colors.white,
-                      ),
-                      child: _isLoadingProcessTypes
-                          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                          : DropdownButton<String>(
-                              isExpanded: true,
-                              value: _selectedProcessTypeDescription,
-                              underline: Container(),
-                              items: _processTypes.map((item) {
-                                return DropdownMenuItem(
-                                  value: item['description'],
-                                  child: Text(item['description']!),
-                                );
-                              }).toList(),
-                              onChanged: (desc) {
-                                _onProcessTypeChanged(desc);
-                                if (desc == "Update") {
-                                  // Only generate document number if we don't already have one
-                                  if (_documentNumber == null) {
-                                    setState(() {
-                                      _documentNumberController.text = "Generating...";
-                                    });
-                                    try {
-                                      _fetchDocumentNumberFromServer().then((docNumber) {
-                                        setState(() {
-                                          _documentNumber = docNumber;
-                                          _documentNumberController.text = docNumber ?? "";
-                                        });
-                                      });
-                                    } catch (e) {
-                                      setState(() {
-                                        _documentNumberController.text = "Error generating document number";
-                                      });
-                                    }
-                                  } else {
-                                    // If we already have a document number, just display it
-                                    setState(() {
-                                      _documentNumberController.text = _documentNumber!;
-                                    });
-                                  }
-                                } else {
-                                  // For "Add" or any other process type, just clear the display but keep the document number in memory
-                                  setState(() {
-                                    _documentNumberController.text = "";
-                                  });
-                                }
-                              },
-                            ),
-                    ),
-                    if (_selectedProcessTypeDescription == "Update")
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: TextFormField(
-                          controller: _documentNumberController,
-                          readOnly: true,
-                          decoration: InputDecoration(
-                            labelText: "Document Number",
-                            filled: true,
-                            fillColor: Colors.grey[200],
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                  ],
+              // ── Activity Information ───────────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  color: SparshTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                  boxShadow: SparshShadows.card,
                 ),
-              ),
-              const SizedBox(height: SparshSpacing.md),
-
-              // Date Section
-              _sectionContainer(
+                padding: const EdgeInsets.all(SparshSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildLabel('Submission Date'),
+                    Text('Activity Information', style: SparshTypography.bodyBold),
+                    const SizedBox(height: SparshSpacing.sm),
+                    Text('Process Type', style: SparshTypography.bodyBold),
+                    if (_processTypeError != null)
+                      Text(_processTypeError!, style: const TextStyle(color: Colors.red)),
+                    _isLoadingProcessTypes
+                      ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                      : DropdownButtonFormField<String>(
+                          value: _processItem,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: SparshTheme.lightGreyBackground,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(SparshBorderRadius.sm),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: SparshSpacing.md,
+                              vertical: SparshSpacing.sm,
+                            ),
+                          ),
+                          items: _processdropdownItems.map((it) => DropdownMenuItem(value: it, child: Text(it))).toList(),
+                          onChanged: (val) async {
+                            setState(() => _processItem = val);
+                            if (val == 'Update') await _fetchDocumentNumbers();
+                          },
+                          validator: (v) => v == null || v == 'Select' ? 'Required' : null,
+                          // enabled: _processdropdownItems.length > 1,
+                        ),
+                    if (_processItem == 'Update') ...[
+                      const SizedBox(height: SparshSpacing.sm),
+                      _loadingDocs
+                        ? const Center(child: CircularProgressIndicator())
+                        : DropdownButtonFormField<String>(
+                            value: _selectedDocuNumb,
+                            decoration: const InputDecoration(labelText: 'Document Number'),
+                            items: _documentNumbers
+                                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                                .toList(),
+                            onChanged: (v) async {
+                              setState(() => _selectedDocuNumb = v);
+                              if (v != null) await _fetchAndPopulateDetails(v);
+                            },
+                            validator: (v) => v == null ? 'Required' : null,
+                          ),  
+                    ],
+                    const SizedBox(height: SparshSpacing.sm),
+                    Text('Submission Date', style: SparshTypography.bodyBold),
                     TextFormField(
                       controller: _dateController,
                       readOnly: true,
@@ -779,10 +842,10 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
                         ),
                         suffixIcon: const Icon(Icons.lock, color: Colors.grey),
                       ),
-                      validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: SparshSpacing.sm),
-                    _buildLabel('Report Date'),
+                    Text('Report Date', style: SparshTypography.bodyBold),
                     TextFormField(
                       controller: _reportDateController,
                       readOnly: true,
@@ -821,11 +884,6 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
                     ),
                     const SizedBox(height: SparshSpacing.sm),
                     _buildLabel('Product Name'),
-                    // _buildTextField(
-                    //   'Enter Product Name',
-                    //   _productController,
-                    //   validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-                    // ),
                     _isLoadingProductNames
                         ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                         : DropdownButtonFormField<String>(
@@ -973,7 +1031,7 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => _onSubmit(exitAfter: false),
-                      child: const Text('Submit & New'),
+                      child: Text(_processItem == 'Update' ? 'Update & New' : 'Submit & New'),
                     ),
                   ),
                   const SizedBox(width: SparshSpacing.sm),
@@ -983,7 +1041,7 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: SparshTheme.successGreen,
                       ),
-                      child: const Text('Submit & Exit'),
+                      child: Text(_processItem == 'Update' ? 'Update & Exit' : 'Submit & Exit'),
                     ),
                   ),
                 ],

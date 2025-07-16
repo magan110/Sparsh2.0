@@ -20,15 +20,19 @@ class InternalTeamMeeting extends StatefulWidget {
 }
 
 class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
-
-    // Geolocation
+  // Geolocation
   Position? _currentPosition;
 
-  List<Map<String, String>> _processTypes = [{'code': 'Select', 'description': 'Select'}];
-  String? _selectedProcessTypeDescription = 'Select';
-  String? _selectedProcessTypeCode;
+  // Process type dropdown state
+  String? _processItem = 'Select';
+  List<String> _processdropdownItems = ['Select'];
   bool _isLoadingProcessTypes = true;
   String? _processTypeError;
+
+  // Document-number dropdown state
+  bool _loadingDocs = false;
+  List<String> _documentNumbers = [];
+  String? _selectedDocuNumb;
 
   final TextEditingController _submissionDateController = TextEditingController();
   final TextEditingController _reportDateController     = TextEditingController();
@@ -49,7 +53,7 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
   @override
   void initState() {
     super.initState();
-        _initGeolocation();
+    _initGeolocation();
     _loadInitialDocumentNumber();
     _fetchProcessTypes();
     _setSubmissionDateToToday();
@@ -89,6 +93,7 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
     }
   }
 
+  // Fetch process types from backend
   Future<void> _fetchProcessTypes() async {
     setState(() { _isLoadingProcessTypes = true; _processTypeError = null; });
     try {
@@ -96,39 +101,98 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        List processTypesList = [];
         if (data is List) {
-          final processTypes = [
-            {'code': 'Select', 'description': 'Select'},
-            ...data.map<Map<String, String>>((item) => {
-              'code': item['Code']?.toString() ?? item['code']?.toString() ?? '',
-              'description': item['Description']?.toString() ?? item['description']?.toString() ?? '',
-            }).where((item) => item['code']!.isNotEmpty && item['description']!.isNotEmpty)
-          ];
-          setState(() {
-            _processTypes = processTypes;
-            _isLoadingProcessTypes = false;
-          });
-        } else {
-          setState(() {
-            _processTypes = [{'code': 'Select', 'description': 'Select'}];
-            _isLoadingProcessTypes = false;
-            _processTypeError = 'Failed to load process types.';
-          });
+          processTypesList = data;
+        } else if (data is Map &&
+            (data['ProcessTypes'] != null || data['processTypes'] != null)) {
+          processTypesList =
+              (data['ProcessTypes'] ?? data['processTypes']) as List;
         }
-      } else {
+        final processTypes = processTypesList
+            .map<String>((type) {
+              if (type is Map) {
+                return type['Description']?.toString() ??
+                    type['description']?.toString() ??
+                    '';
+              } else {
+                return type.toString();
+              }
+            })
+            .where((desc) => desc.isNotEmpty)
+            .toList();
         setState(() {
-          _processTypes = [{'code': 'Select', 'description': 'Select'}];
+          _processdropdownItems = ['Select', ...processTypes];
+          _processItem = 'Select';
           _isLoadingProcessTypes = false;
-          _processTypeError = 'Failed to load process types.';
         });
+      } else {
+        throw Exception('Failed to load process types.');
       }
     } catch (e) {
       setState(() {
-        _processTypes = [{'code': 'Select', 'description': 'Select'}];
+        _processdropdownItems = ['Select'];
+        _processItem = 'Select';
         _isLoadingProcessTypes = false;
         _processTypeError = 'Failed to load process types.';
       });
     }
+  }
+
+  // Fetch document numbers for Update
+  Future<void> _fetchDocumentNumbers() async {
+    setState(() {
+      _loadingDocs = true;
+      _documentNumbers = [];
+      _selectedDocuNumb = null;
+    });
+    final uri = Uri.parse(
+      'http://192.168.36.25/api/DsrTry/getDocumentNumbers?dsrParam=52' // Use correct param for this activity
+    );
+    try {
+      final resp = await http.get(uri);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as List;
+        setState(() {
+          _documentNumbers = data
+            .map((e) {
+              return (e['DocuNumb']
+                   ?? e['docuNumb']
+                   ?? e['DocumentNumber']
+                   ?? e['documentNumber']
+                   ?? '').toString();
+            })
+            .where((s) => s.isNotEmpty)
+            .toList();
+        });
+      }
+    } catch (_) {
+      // ignore errors
+    } finally {
+      setState(() { _loadingDocs = false; });
+    }
+  }
+
+  // Fetch details for a document number and populate fields
+  Future<void> _fetchAndPopulateDetails(String docuNumb) async {
+    final uri = Uri.parse('http://192.168.36.25/api/DsrTry/getDsrEntry?docuNumb=$docuNumb');
+    try {
+      final resp = await http.get(uri);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        setState(() {
+          _meetwithController.text = data['dsrRem01'] ?? '';
+          _meetdiscController.text = data['dsrRem02'] ?? '';
+          _learnnngController.text = data['dsrRem03'] ?? '';
+          if (data['SubmissionDate'] != null) {
+            _submissionDateController.text = data['SubmissionDate'].toString().substring(0, 10);
+          }
+          if (data['ReportDate'] != null) {
+            _reportDateController.text = data['ReportDate'].toString().substring(0, 10);
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   void _setSubmissionDateToToday() {
@@ -260,73 +324,88 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
     );
   }
 
+  // SUBMIT / UPDATE
   Future<void> _onSubmit({required bool exitAfter}) async {
     if (!_formKey.currentState!.validate()) return;
-
-    // ensure we have location
-    if (_currentPosition == null) {
-      await _initGeolocation();
-    }
-
+    if (_currentPosition == null) await _initGeolocation();
 
     final dsrData = {
       'ActivityType': 'Internal Team Meetings / Review Meetings',
-      'ProcessType': _selectedProcessTypeCode ?? '',
       'SubmissionDate': _submissionDateController.text,
       'ReportDate': _reportDateController.text,
-      
-     
-     
       'dsrRem01': _meetwithController.text,
       'dsrRem02': _meetdiscController.text,
       'dsrRem03': _learnnngController.text,
-      // 'dsrRem04': '',
-      // 'dsrRem05': '',
-      // 'dsrRem06': '',
-      // 'dsrRem07': '',
-      // 'dsrRem08': '',
-      // Geography
       'latitude': _currentPosition?.latitude.toString() ?? '',
       'longitude': _currentPosition?.longitude.toString() ?? '',
-
+      'DsrParam': '52',
+      'DocuNumb': _processItem == 'Update' ? _selectedDocuNumb : null,
+      'ProcessType': _processItem == 'Update' ? 'U' : 'A',
+      'CreateId': '2948',
     };
-    print('Prepared DSR Data: $dsrData'); // DEBUG
 
     try {
-      await submitDsrEntry(dsrData);
+      final url = Uri.parse(
+        'http://192.168.36.25/api/DsrTry/' + (_processItem == 'Update' ? 'update' : '')
+      );
+      final resp = _processItem == 'Update'
+          ? await http.put(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(dsrData),
+            )
+          : await http.post(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(dsrData),
+            );
+
+      final success = (_processItem == 'Update' && resp.statusCode == 204) ||
+                      (_processItem != 'Update' && resp.statusCode == 201);
+
+      if (!success) {
+        print('Error submitting DSR: Status \u001b[33m\u001b[1m${resp.statusCode}\u001b[0m\nBody: ${resp.body}');
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(exitAfter
-              ? 'Submitted successfully. Exiting...'
-              : 'Submitted successfully. Ready for new entry.'),
-          backgroundColor: Colors.green,
+          content: Text(success
+              ? exitAfter
+                  ? '${_processItem == 'Update' ? 'Updated' : 'Submitted'} successfully. Exiting...'
+                  : '${_processItem == 'Update' ? 'Updated' : 'Submitted'} successfully. Ready for new entry.'
+              : 'Error: ${resp.body}'),
+          backgroundColor: success ? Colors.green : Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
-      if (exitAfter) {
-        Navigator.of(context).pop();
-      } else {
-        _formKey.currentState!.reset();
-        setState(() {
-          _selectedProcessTypeDescription = 'Select';
-          _selectedProcessTypeCode = null;
-          _submissionDateController.clear();
-          _reportDateController.clear();
-          _meetwithController.clear();
-          _meetdiscController.clear();
-          _learnnngController.clear();
-          _uploadRows
-            ..clear()
-            ..add(0);
-          _selectedImagePaths
-            ..clear()
-            ..add([]);
-        });
+
+      if (success) {
+        if (exitAfter) {
+          Navigator.of(context).pop();
+        } else {
+          _formKey.currentState!.reset();
+          setState(() {
+            _processItem = 'Select';
+            _selectedDocuNumb = null;
+            _submissionDateController.clear();
+            _reportDateController.clear();
+            _meetwithController.clear();
+            _meetdiscController.clear();
+            _learnnngController.clear();
+            _uploadRows
+              ..clear()
+              ..add(0);
+            _selectedImagePaths
+              ..clear()
+              ..add([]);
+          });
+        }
       }
     } catch (e) {
+      print('Exception during submit: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Submission failed: ${e.toString()}'),
+          content: Text('Exception: $e'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -362,7 +441,7 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'areaCode': _selectedProcessTypeCode ?? 'KKR'}),
+        body: jsonEncode({'areaCode': _processItem == 'Update' ? _selectedDocuNumb : null}),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -392,8 +471,6 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
     setState(() {
       _documentNumber = null;
       _documentNumberController.clear();
-      _selectedProcessTypeDescription = 'Select';
-      _selectedProcessTypeCode = null;
       // Clear other form fields as needed
     });
     DocumentNumberStorage.clearDocumentNumber(DocumentNumberKeys.internalTeamMeeting); // Clear from persistent storage
@@ -401,12 +478,12 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
 
   void _onProcessTypeChanged(String? desc) {
     setState(() {
-      _selectedProcessTypeDescription = desc;
-      final selected = _processTypes.firstWhere(
-        (item) => item['description'] == desc,
-        orElse: () => {'code': '', 'description': ''},
-      );
-      _selectedProcessTypeCode = selected['code'];
+      // _selectedProcessTypeDescription = desc; // This line is removed
+      // final selected = _processTypes.firstWhere( // This line is removed
+      //   (item) => item['description'] == desc, // This line is removed
+      //   orElse: () => {'code': '', 'description': ''}, // This line is removed
+      // ); // This line is removed
+      // _selectedProcessTypeCode = selected['code']; // This line is removed
     });
   }
 
@@ -450,7 +527,7 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
                       _isLoadingProcessTypes
                         ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                         : DropdownButtonFormField<String>(
-                            value: _selectedProcessTypeDescription,
+                            value: _processItem,
                             decoration: InputDecoration(
                               labelText: "Process Type",
                               filled: true,
@@ -458,65 +535,30 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             ),
-                            items: _processTypes
-                                .map((item) => DropdownMenuItem(value: item['description'], child: Text(item['description']!)))
-                                .toList(),
-                            onChanged: (desc) {
-                              setState(() {
-                                _selectedProcessTypeDescription = desc;
-                                final selected = _processTypes.firstWhere(
-                                  (item) => item['description'] == desc,
-                                  orElse: () => {'code': '', 'description': ''},
-                                );
-                                _selectedProcessTypeCode = selected['code'];
-                              });
-                              if (desc == "Update") {
-                                // Only generate document number if we don't already have one
-                                if (_documentNumber == null) {
-                                  setState(() {
-                                    _documentNumberController.text = "Generating...";
-                                  });
-                                  try {
-                                    _fetchDocumentNumberFromServer().then((docNumber) {
-                                      setState(() {
-                                        _documentNumber = docNumber;
-                                        _documentNumberController.text = docNumber ?? "";
-                                      });
-                                    });
-                                  } catch (e) {
-                                    setState(() {
-                                      _documentNumberController.text = "Error generating document number";
-                                    });
-                                  }
-                                } else {
-                                  // If we already have a document number, just display it
-                                  setState(() {
-                                    _documentNumberController.text = _documentNumber!;
-                                  });
-                                }
-                              } else {
-                                // For "Add" or any other process type, just clear the display but keep the document number in memory
-                                setState(() {
-                                  _documentNumberController.text = "";
-                                });
-                              }
+                            items: _processdropdownItems.map((it) => DropdownMenuItem(value: it, child: Text(it))).toList(),
+                            onChanged: (val) async {
+                              setState(() => _processItem = val);
+                              if (val == 'Update') await _fetchDocumentNumbers();
                             },
                             validator: (val) => (val == null || val == 'Select') ? 'Please select a process' : null,
                           ),
-                      if (_selectedProcessTypeDescription == "Update")
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: TextFormField(
-                            controller: _documentNumberController,
-                            readOnly: true,
-                            decoration: InputDecoration(
-                              labelText: "Document Number",
-                              filled: true,
-                              fillColor: Colors.grey[200],
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
+                      if (_processItem == "Update") ...[
+                        const SizedBox(height: 8.0),
+                        _loadingDocs
+                          ? const Center(child: CircularProgressIndicator())
+                          : DropdownButtonFormField<String>(
+                              value: _selectedDocuNumb,
+                              decoration: const InputDecoration(labelText: 'Document Number'),
+                              items: _documentNumbers
+                                  .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                                  .toList(),
+                              onChanged: (v) async {
+                                setState(() => _selectedDocuNumb = v);
+                                if (v != null) await _fetchAndPopulateDetails(v);
+                              },
+                              validator: (v) => v == null ? 'Required' : null,
+                            ),  
+                      ],
                     ],
                   ),
                 ),
@@ -767,7 +809,17 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('Submit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: Text(_processItem == 'Update' ? 'Update & New' : 'Submit & New', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => _onSubmit(exitAfter: true),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: SparshTheme.successGreen,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: Text(_processItem == 'Update' ? 'Update & Exit' : 'Submit & Exit', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ],
           ),

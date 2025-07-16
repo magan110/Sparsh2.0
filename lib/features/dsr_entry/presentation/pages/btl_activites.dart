@@ -20,57 +20,61 @@ class BtlActivities extends StatefulWidget {
 }
 
 class _BtlActivitiesState extends State<BtlActivities> {
-  // ─── State & Controllers ────────────────────────────────────────────────────
+  // 1) CONTROLLERS for dropdowns and dates
   String? _processItem = 'Select';
-  List<String> _processItems = ['Select'];
+  List<String> _processdropdownItems = ['Select'];
   bool _isLoadingProcessTypes = true;
   String? _processTypeError;
 
-  String? _activityTypeItem = 'Select';
-  List<String> _activityTypes = ['Select'];
-  bool _isLoadingActivityTypes = true;
-  String? _activityTypeError;
+  // NEW: Document-number dropdown state
+  bool _loadingDocs = false;
+  List<String> _documentNumbers = [];
+  String? _selectedDocuNumb;
+
+  // Geolocation
+  Position? _currentPosition;
 
   final _dateController       = TextEditingController();
   final _reportDateController = TextEditingController();
   DateTime? _selectedDate;
   DateTime? _selectedReportDate;
 
+  // 2) CONTROLLERS for activity text fields
   final _participantsController = TextEditingController();
   final _townController         = TextEditingController();
   final _learningsController    = TextEditingController();
+  String? _activityTypeItem = 'Select';
+  List<String> _activityTypes = ['Select'];
+  bool _isLoadingActivityTypes = true;
+  String? _activityTypeError;
 
+  // 3) IMAGE UPLOAD state (up to 3)
   final List<XFile?> _selectedImages = [null];
-  final _picker               = ImagePicker();
+  final _picker = ImagePicker();
 
+  // 4) Document-number persistence
   final _documentNumberController = TextEditingController();
   String? _documentNumber;
 
-  Position? _currentPosition;
+  // 5) Config: dsrParam for this activity
+  String param = '51';
 
   final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
+    _initGeolocation();
     _loadInitialDocumentNumber();
     _fetchProcessTypes();
     _fetchActivityTypes();
-    _initDate();
-    _getCurrentLocation();
+    _setSubmissionDateToToday();
   }
 
-  void _initDate() {
-    final today = DateTime.now();
-    _dateController.text = DateFormat('yyyy-MM-dd').format(today);
-  }
-
-  Future<void> _getCurrentLocation() async {
+  Future<void> _initGeolocation() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw Exception('Location services disabled.');
-      }
+      if (!serviceEnabled) throw Exception('Location services disabled.');
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -86,85 +90,97 @@ class _BtlActivitiesState extends State<BtlActivities> {
         _currentPosition = pos;
       });
     } catch (e) {
-      // You might want to show a Snackbar or fallback if location fails
       debugPrint('Error getting location: $e');
     }
   }
 
-  // Load document number when screen initializes
+  // Load any saved document number
   Future<void> _loadInitialDocumentNumber() async {
-    final savedDocNumber = await DocumentNumberStorage.loadDocumentNumber(DocumentNumberKeys.btlActivities);
-    if (savedDocNumber != null) {
+    final saved = await DocumentNumberStorage.loadDocumentNumber(DocumentNumberKeys.btlActivities);
+    if (saved != null) {
       setState(() {
-        _documentNumber = savedDocNumber;
+        _documentNumber = saved;
+        _documentNumberController.text = saved;
       });
     }
   }
 
-
-
-Future<void> _fetchProcessTypes() async {
-  setState(() {
-    _isLoadingProcessTypes = true;
-    _processTypeError = null;
-  });
-
-  const cacheKey = 'processTypesCache';
-  List<String>? freshList;
-
-  try {
-    final url = Uri.parse('http://192.168.36.25/api/DsrTry/getProcessTypes');
-    final response = await http
-        .get(url)
-        .timeout(const Duration(seconds: 10)); // guard against hanging
-    if (response.statusCode != 200) {
-      throw Exception('Status code ${response.statusCode}');
-    }
-
-    final data = jsonDecode(response.body);
-    if (data is! List) {
-      throw Exception('Unexpected payload');
-    }
-
-    // parse either "description" or "Description"
-    freshList = data.whereType<Map<String, dynamic>>().map((type) {
-      final desc = type['description'] ?? type['Description'];
-      return desc?.toString().trim() ?? '';
-    }).where((s) => s.isNotEmpty).toList();
-
-    if (freshList.isEmpty) {
-      throw Exception('No process types returned');
-    }
-
-    // cache to SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(cacheKey, freshList);
-
-  } catch (e) {
-    // on any error, try to load from cache
-    final prefs = await SharedPreferences.getInstance();
-    final cached = prefs.getStringList(cacheKey);
-
-    if (cached != null && cached.isNotEmpty) {
-      freshList = List.from(cached);
-    } else {
-      // no cache → real failure
+  Future<void> _fetchProcessTypes() async {
+    setState(() {
+      _isLoadingProcessTypes = true;
+      _processTypeError = null;
+    });
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getProcessTypes');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        List processTypesList = [];
+        if (data is List) {
+          processTypesList = data;
+        } else if (data is Map && (data['ProcessTypes'] != null || data['processTypes'] != null)) {
+          processTypesList = (data['ProcessTypes'] ?? data['processTypes']) as List;
+        }
+        final processTypes = processTypesList
+            .map<String>((type) {
+              if (type is Map) {
+                return type['Description']?.toString() ?? type['description']?.toString() ?? '';
+              } else {
+                return type.toString();
+              }
+            })
+            .where((desc) => desc.isNotEmpty)
+            .toList();
+        setState(() {
+          _processdropdownItems = ['Select', ...processTypes];
+          _processItem = 'Select';
+          _isLoadingProcessTypes = false;
+        });
+      } else {
+        throw Exception('Failed to load process types.');
+      }
+    } catch (e) {
       setState(() {
-        _processItems = ['Select'];
+        _processdropdownItems = ['Select'];
+        _processItem = 'Select';
         _isLoadingProcessTypes = false;
-        _processTypeError = 'Failed to load process types: ${e.toString()}';
+        _processTypeError = 'Failed to load process types.';
       });
-      return;
     }
   }
 
-  // success (fresh or cached)
-  setState(() {
-    _processItems = ['Select', ...freshList!];
-    _isLoadingProcessTypes = false;
-    _processTypeError = null;
-  });
-}
+  // Fetch docuNumb list when Update selected
+  Future<void> _fetchDocumentNumbers() async {
+    setState(() {
+      _loadingDocs = true;
+      _documentNumbers = [];
+      _selectedDocuNumb = null;
+    });
+    final uri = Uri.parse('http://192.168.36.25/api/DsrTry/getDocumentNumbers?dsrParam=$param');
+    try {
+      final resp = await http.get(uri);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as List;
+        setState(() {
+          _documentNumbers = data
+            .map((e) {
+              return (e['DocuNumb']
+                   ?? e['docuNumb']
+                   ?? e['DocumentNumber']
+                   ?? e['documentNumber']
+                   ?? '').toString();
+            })
+            .where((s) => s.isNotEmpty)
+            .toList();
+        });
+      }
+    } catch (_) {
+      // ignore errors
+    } finally {
+      setState(() { _loadingDocs = false; });
+    }
+  }
+
   Future<void> _fetchActivityTypes() async {
     setState(() { _isLoadingActivityTypes = true; _activityTypeError = null; });
     try {
@@ -193,6 +209,29 @@ Future<void> _fetchProcessTypes() async {
     }
   }
 
+  // Fetch details for a selected document number and populate form fields
+  Future<void> _fetchDocumentDetails(String docuNumb) async {
+    final url = Uri.parse('http://192.168.36.25/api/DsrTry/getDocumentDetails?docuNumb=$docuNumb');
+    try {
+      final resp = await http.get(url);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        setState(() {
+          _activityTypeItem = data['dsrRem01'] ?? 'Select';
+          _participantsController.text = data['dsrRem02'] ?? '';
+          _townController.text = data['dsrRem03'] ?? '';
+          _learningsController.text = data['dsrRem04'] ?? '';
+          _selectedDate = DateTime.tryParse(data['SubmissionDate'] ?? '') ?? DateTime.now();
+          _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate!);
+          _selectedReportDate = DateTime.tryParse(data['ReportDate'] ?? '') ?? DateTime.now();
+          _reportDateController.text = DateFormat('yyyy-MM-dd').format(_selectedReportDate!);
+        });
+      }
+    } catch (e) {
+      print('Error fetching document details: $e');
+    }
+  }
+
   @override
   void dispose() {
     _dateController.dispose();
@@ -204,94 +243,38 @@ Future<void> _fetchProcessTypes() async {
     super.dispose();
   }
 
-  // Document number generation is now handled entirely by the backend API
-
-  // Method to fetch document number from server using the simplified endpoint
-  Future<String?> _fetchDocumentNumberFromServer() async {
-    try {
-      final url = Uri.parse('http://192.168.36.25/api/DsrTry/generateDocumentNumber');
-      
-      print('🔍 Calling API: $url');
-      print('📤 Request body: "KKR" (hardcoded area code)');
-      
-      // Send only the area code as a simple string
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode('KKR'), // Hardcoded to KKR
-      );
-      
-      print('📥 Response status: ${response.statusCode}');
-      print('📥 Response body: ${response.body}');
-      
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        print('📋 Parsed data: $data');
-        
-        // Try different possible field names for document number
-        String? documentNumber;
-        if (data is Map<String, dynamic>) {
-          documentNumber = data['documentNumber'] ?? data['DocumentNumber'] ?? data['docNumber'] ?? data['DocNumber'];
-        } else if (data is String) {
-          documentNumber = data;
-        }
-        
-        print('📄 Extracted document number: $documentNumber');
-        
-        // Save to persistent storage
-        if (documentNumber != null) {
-          await DocumentNumberStorage.saveDocumentNumber(DocumentNumberKeys.btlActivities, documentNumber);
-        }
-        
-        return documentNumber;
-      } else {
-        print('❌ API call failed with status: ${response.statusCode}');
-        return null;
-      }
-    } catch (e) {
-      print('❌ Error calling API: $e');
-      return null;
-    }
+  // DATE PICKERS
+  void _setSubmissionDateToToday() {
+    final today = DateTime.now();
+    _selectedDate = today;
+    _dateController.text = DateFormat('yyyy-MM-dd').format(today);
   }
 
-  Future<void> _pickDate(
-    TextEditingController ctrl,
-    DateTime? initial,
-    ValueChanged<DateTime> onSelected, {
-    bool isReportDate = false,
-  }) async {
+  Future<void> _pickReportDate() async {
     final now = DateTime.now();
     final threeDaysAgo = now.subtract(const Duration(days: 3));
-    final firstDate = isReportDate 
-        ? DateTime(now.year - 10)
-        : DateTime(2000);
-    final lastDate = isReportDate 
-        ? now
-        : DateTime(now.year + 5);
-    final picked = await showDatePicker(
+    final pick = await showDatePicker(
       context: context,
-      initialDate: initial ?? now,
-      firstDate: firstDate,
-      lastDate: lastDate,
+      initialDate: _selectedReportDate ?? now,
+      firstDate: DateTime(now.year - 10),
+      lastDate: now,
     );
-    if (picked != null) {
-      if (isReportDate && picked.isBefore(threeDaysAgo)) {
-        showDialog(
+    if (pick != null) {
+      if (pick.isBefore(threeDaysAgo)) {
+        await showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Please Put Valid DSR Date.'),
+          builder: (_) => AlertDialog(
+            title: const Text('Invalid DSR Date'),
             content: const Text(
-              'You Can submit DSR only Last Three Days. If You want to submit back date entry Please enter Exception entry (Path : Transcation --> DSR Exception Entry). Take Approval from concerned and Fill DSR Within 3 days after approval.'
+              'You can only submit up to 3 days back. Use Exception Entry for older dates.'
             ),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
-              ),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
               TextButton(
                 onPressed: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
                     MaterialPageRoute(builder: (_) => const DsrExceptionEntryPage()),
                   );
                 },
@@ -302,17 +285,20 @@ Future<void> _fetchProcessTypes() async {
         );
         return;
       }
-      onSelected(picked);
-      ctrl.text = DateFormat('yyyy-MM-dd').format(picked);
+      setState(() {
+        _selectedReportDate = pick;
+        _reportDateController.text = DateFormat('yyyy-MM-dd').format(pick);
+      });
     }
   }
 
+  // IMAGE PICKER
   Future<void> _pickImage(int idx) async {
     final file = await _picker.pickImage(source: ImageSource.gallery);
     if (file != null) setState(() => _selectedImages[idx] = file);
   }
 
-  void _showImage(XFile file) {
+  void _showImageDialog(XFile file) {
     showDialog(
       context: context,
       builder: (_) => Dialog(
@@ -326,95 +312,107 @@ Future<void> _fetchProcessTypes() async {
     );
   }
 
-  void _addImageField() {
-    if (_selectedImages.length < 3) setState(() => _selectedImages.add(null));
-  }
-
-  void _removeImageField(int idx) {
-    if (_selectedImages.length > 1) setState(() => _selectedImages.removeAt(idx));
-  }
-
-    Future<void> _onSubmit(bool exitAfter) async {
-    if (!_formKey.currentState!.validate()) return;
-
-    // ensure we have a position before submitting
-    if (_currentPosition == null) {
-      await _getCurrentLocation();
+  void _addRow() {
+    if (_selectedImages.length < 3) {
+      setState(() {
+        _selectedImages.add(null);
+      });
     }
+  }
+
+  void _removeRow(int idx) {
+    if (_selectedImages.length > 1) {
+      setState(() {
+        _selectedImages.removeAt(idx);
+      });
+    }
+  }
+
+  // SUBMIT / UPDATE
+  Future<void> _onSubmit({required bool exitAfter}) async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_currentPosition == null) await _initGeolocation();
+
+    final dsrData = {
+      'ActivityType':   'BTL Activities',
+      'SubmissionDate': _selectedDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'ReportDate':     _selectedReportDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'dsrRem01':       _activityTypeItem ?? '',
+      'dsrRem02':       _participantsController.text,
+      'dsrRem03':       _townController.text,
+      'dsrRem04':       _learningsController.text,
+      'latitude':       _currentPosition?.latitude.toString() ?? '',
+      'longitude':      _currentPosition?.longitude.toString() ?? '',
+      'DsrParam':       param,
+      'DocuNumb':       _processItem == 'Update' ? _selectedDocuNumb : null,
+      'ProcessType':    _processItem == 'Update' ? 'U' : 'A',
+      'CreateId':       '2948',
+    };
 
     try {
+      final url = Uri.parse(
+        'http://192.168.36.25/api/DsrTry/' + (_processItem == 'Update' ? 'update' : '')
+      );
+      final resp = _processItem == 'Update'
+          ? await http.put(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(dsrData),
+            )
+          : await http.post(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(dsrData),
+            );
+
+      final success = (_processItem == 'Update' && resp.statusCode == 204) ||
+                      (_processItem != 'Update' && resp.statusCode == 201);
+
+      if (!success) {
+        print('Error submitting DSR: Status ${resp.statusCode}\nBody: ${resp.body}');
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Submitting form...'),
-          backgroundColor: Colors.blue,
+        SnackBar(
+          content: Text(success
+              ? exitAfter
+                  ? '${_processItem == 'Update' ? 'Updated' : 'Submitted'} successfully. Exiting...'
+                  : '${_processItem == 'Update' ? 'Updated' : 'Submitted'} successfully. Ready for new entry.'
+              : 'Error: ${resp.body}'),
+          backgroundColor: success ? Colors.green : Colors.red,
+          behavior: SnackBarBehavior.floating,
         ),
       );
 
-      final submissionData = {
-        'ActivityType': 'BTL Activities',
-        'SubmissionDate': _selectedDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
-        'ReportDate': _selectedReportDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
-        'dsrRem01': _activityTypeItem ?? '',
-        'dsrRem02': _participantsController.text,
-        'dsrRem03': _townController.text,
-        'dsrRem04': _learningsController.text,
-        'dsrRem05': '',
-        'dsrRem06': '',
-        'dsrRem07': '',
-        'dsrRem08': '',
-        // include live coords:
-        'latitude': _currentPosition?.latitude.toString()  ?? '',
-        'longitude': _currentPosition?.longitude.toString() ?? '',
-      };
-
-      final url = Uri.parse('http://192.168.36.25/api/DsrTry');
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(submissionData),
-      );
-
-      if (response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              exitAfter
-                  ? 'Form submitted successfully. Exiting...'
-                  : 'Form submitted successfully. Ready for new entry.',
-            ),
-            backgroundColor: SparshTheme.successGreen,
-          ),
-        );
-
+      if (success) {
         if (exitAfter) {
           Navigator.of(context).pop();
         } else {
           _formKey.currentState!.reset();
           setState(() {
             _processItem = 'Select';
-            _activityTypeItem = 'Select';
+            _selectedDocuNumb = null;
             _dateController.clear();
             _reportDateController.clear();
             _selectedDate = null;
             _selectedReportDate = null;
+            _activityTypeItem = 'Select';
             _participantsController.clear();
             _townController.clear();
             _learningsController.clear();
-            _documentNumber = null;
-            _documentNumberController.clear();
             _selectedImages
               ..clear()
               ..add(null);
           });
         }
-      } else {
-        throw Exception('Failed to submit form: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
+      print('Exception during submit: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Submission failed: ${e.toString()}'),
+          content: Text('Exception: $e'),
           backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -452,10 +450,11 @@ Future<void> _fetchProcessTypes() async {
       );
 
   Widget _buildDateField(
-          TextEditingController ctrl,
-          VoidCallback onTap,
-          String hint,
-          String? Function(String?)? validator) =>
+    TextEditingController ctrl,
+    VoidCallback onTap,
+    String hint, {
+    String? Function(String?)? validator,
+  }) =>
       TextFormField(
         controller: ctrl,
         readOnly: true,
@@ -522,7 +521,7 @@ Future<void> _fetchProcessTypes() async {
             const SizedBox(width: SparshSpacing.sm),
             if (file != null)
               ElevatedButton.icon(
-                onPressed: () => _showImage(file),
+                onPressed: () => _showImageDialog(file),
                 icon: const Icon(Icons.visibility),
                 label: const Text('View'),
               ),
@@ -530,7 +529,7 @@ Future<void> _fetchProcessTypes() async {
             if (_selectedImages.length > 1 && idx == _selectedImages.length - 1)
               IconButton(
                 icon: const Icon(Icons.remove_circle_outline, color: SparshTheme.errorRed),
-                onPressed: () => _removeImageField(idx),
+                onPressed: () => _removeRow(idx),
               ),
           ],
         ),
@@ -550,7 +549,6 @@ Future<void> _fetchProcessTypes() async {
             MaterialPageRoute(builder: (_) => const DsrEntry()),
           ),
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-
         ),
         title: const Text('BTL Activities'),
         backgroundColor: SparshTheme.primaryBlueAccent,
@@ -562,95 +560,55 @@ Future<void> _fetchProcessTypes() async {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── Process Section ───────────────────────────────
-              _sectionContainer(
+              // ── Activity Information ───────────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  color: SparshTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                  boxShadow: SparshShadows.card,
+                ),
+                padding: const EdgeInsets.all(SparshSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildLabel('Process Type'),
+                    _buildLabel('Activity Information'),
                     const SizedBox(height: SparshSpacing.sm),
+                    _buildLabel('Process Type'),
                     if (_processTypeError != null)
                       Text(_processTypeError!, style: const TextStyle(color: Colors.red)),
                     _isLoadingProcessTypes
-                        ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                        : _buildDropdown(
-                            value: _processItem,
-                            items: _processItems,
-                            onChanged: (val) async {
-                              setState(() {
-                                _processItem = val;
-                              });
-                              
-                              if (val == "Update") {
-                                // Only generate document number if we don't already have one
-                                if (_documentNumber == null) {
-                                  setState(() {
-                                    _documentNumberController.text = "Generating...";
-                                  });
-                                  
-                                  try {
-                                    final docNumber = await _fetchDocumentNumberFromServer();
-                                    setState(() {
-                                      _documentNumber = docNumber;
-                                      _documentNumberController.text = docNumber ?? "";
-                                    });
-                                  } catch (e) {
-                                    setState(() {
-                                      _documentNumberController.text = "Error generating document number";
-                                    });
-                                  }
-                                } else {
-                                  // If we already have a document number, just display it
-                                  setState(() {
-                                    _documentNumberController.text = _documentNumber!;
-                                  });
-                                }
-                              } else {
-                                // For "Add" or any other process type, just clear the display but keep the document number in memory
-                                setState(() {
-                                  _documentNumberController.text = "";
-                                });
+                      ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                      : _buildDropdown(
+                          value: _processItem,
+                          items: _processdropdownItems,
+                          onChanged: (val) async {
+                            setState(() => _processItem = val);
+                            if (val == 'Update') await _fetchDocumentNumbers();
+                          },
+                          validator: (v) => v == null || v == 'Select' ? 'Required' : null,
+                          enabled: _processdropdownItems.length > 1,
+                        ),
+                    if (_processItem == 'Update') ...[
+                      const SizedBox(height: SparshSpacing.sm),
+                      _loadingDocs
+                        ? const Center(child: CircularProgressIndicator())
+                        : DropdownButtonFormField<String>(
+                            value: _selectedDocuNumb,
+                            decoration: const InputDecoration(labelText: 'Document Number'),
+                            items: _documentNumbers
+                                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                                .toList(),
+                            onChanged: (v) async {
+                              setState(() => _selectedDocuNumb = v);
+                              if (v != null && v.isNotEmpty) {
+                                await _fetchDocumentDetails(v);
                               }
                             },
-                            validator: (v) => (v == null || v == 'Select') ? 'Required' : null,
-                            enabled: _processItems.length > 1,
+                            validator: (v) => v == null ? 'Required' : null,
                           ),
-                    if (_processItem == "Update")
-                      Padding(
-                        padding: const EdgeInsets.only(top: SparshSpacing.sm),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            TextFormField(
-                              controller: _documentNumberController,
-                              readOnly: true,
-                              decoration: InputDecoration(
-                                labelText: "Document Number",
-                                filled: true,
-                                fillColor: SparshTheme.lightGreyBackground,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(SparshBorderRadius.sm),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: SparshSpacing.sm),
-                            
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: SparshSpacing.md),
-
-              // ── Date Section ─────────────────────────────────
-              _sectionContainer(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                    ],
+                    const SizedBox(height: SparshSpacing.sm),
                     _buildLabel('Submission Date'),
-                    const SizedBox(height: SparshSpacing.xs),
                     TextFormField(
                       controller: _dateController,
                       readOnly: true,
@@ -658,39 +616,41 @@ Future<void> _fetchProcessTypes() async {
                       decoration: InputDecoration(
                         hintText: 'Submission Date',
                         filled: true,
-                        fillColor: SparshTheme.cardBackground,
+                        fillColor: SparshTheme.lightGreyBackground,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(SparshBorderRadius.sm),
                           borderSide: BorderSide.none,
                         ),
-                        suffixIcon: const Icon(Icons.lock, color: Colors.grey),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: SparshSpacing.md,
                           vertical: SparshSpacing.sm,
                         ),
+                        suffixIcon: const Icon(Icons.lock, color: Colors.grey),
                       ),
+                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: SparshSpacing.sm),
                     _buildLabel('Report Date'),
-                    const SizedBox(height: SparshSpacing.xs),
                     _buildDateField(
                       _reportDateController,
-                      () => _pickDate(
-                        _reportDateController,
-                        _selectedReportDate,
-                        (d) => _selectedReportDate = d,
-                        isReportDate: true,
-                      ),
+                      () => _pickReportDate(),
                       'Select Date',
-                      (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                     ),
                   ],
                 ),
               ),
+
               const SizedBox(height: SparshSpacing.md),
 
-              // ── BTL Activity Details ─────────────────────────
-              _sectionContainer(
+              // ── Activity Details ───────────────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  color: SparshTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                  boxShadow: SparshShadows.card,
+                ),
+                padding: const EdgeInsets.all(SparshSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -740,10 +700,17 @@ Future<void> _fetchProcessTypes() async {
                   ],
                 ),
               ),
+
               const SizedBox(height: SparshSpacing.md),
 
               // ── Supporting Documents ─────────────────────────
-              _sectionContainer(
+              Container(
+                decoration: BoxDecoration(
+                  color: SparshTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(SparshBorderRadius.md),
+                  boxShadow: SparshShadows.card,
+                ),
+                padding: const EdgeInsets.all(SparshSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -776,7 +743,7 @@ Future<void> _fetchProcessTypes() async {
                     if (_selectedImages.length < 3) ...[
                       Center(
                         child: TextButton.icon(
-                          onPressed: _addImageField,
+                          onPressed: _addRow,
                           icon: const Icon(Icons.add_photo_alternate),
                           label: const Text('Add More Image'),
                         ),
@@ -790,43 +757,21 @@ Future<void> _fetchProcessTypes() async {
 
               // ── Submit Buttons ───────────────────────────────
               ElevatedButton(
-                onPressed: () => _onSubmit(false),
-                child: const Text('Submit & New'),
+                onPressed: () => _onSubmit(exitAfter: false),
+                child: Text(_processItem == 'Update' ? 'Update & New' : 'Submit & New'),
               ),
               const SizedBox(height: SparshSpacing.sm),
               ElevatedButton(
-                onPressed: () => _onSubmit(true),
+                onPressed: () => _onSubmit(exitAfter: true),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: SparshTheme.successGreen,
                 ),
-                child: const Text('Submit & Exit'),
+                child: Text(_processItem == 'Update' ? 'Update & Exit' : 'Submit & Exit'),
               ),
-
             ],
           ),
         ),
       ),
     );
-  }
-
-  Widget _sectionContainer({required Widget child}) => Container(
-        decoration: BoxDecoration(
-          color: SparshTheme.cardBackground,
-          borderRadius: BorderRadius.circular(SparshBorderRadius.md),
-          boxShadow: SparshShadows.card,
-        ),
-        padding: const EdgeInsets.all(SparshSpacing.md),
-        child: child,
-      );
-
-  // Add a method to reset the form (clear document number)
-  void _resetForm() {
-    setState(() {
-      _documentNumber = null;
-      _documentNumberController.clear();
-      _processItem = 'Select';
-      // Clear other form fields as needed
-    });
-    DocumentNumberStorage.clearDocumentNumber(DocumentNumberKeys.btlActivities); // Clear from persistent storage
   }
 }

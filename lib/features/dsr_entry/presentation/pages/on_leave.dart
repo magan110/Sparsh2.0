@@ -21,14 +21,19 @@ class OnLeave extends StatefulWidget {
 class _OnLeaveState extends State<OnLeave> {
   final _formKey = GlobalKey<FormState>();
 
-    // Geolocation
+  // Geolocation
   Position? _currentPosition;
 
-  // Change process dropdown to hold maps with code and description
-  Map<String, String>? _processItem = null; // selected item
-  List<Map<String, String>> _processdropdownItems = [];
+  // Add/Update process type state
+  String? _processItem = 'Select';
+  List<String> _processdropdownItems = ['Select'];
   bool _isLoadingProcessTypes = true;
   String? _processTypeError;
+
+  // Document-number dropdown state
+  bool _loadingDocs = false;
+  List<String> _documentNumbers = [];
+  String? _selectedDocuNumb;
 
   final TextEditingController _submissionDateController = TextEditingController();
   final TextEditingController _reportDateController     = TextEditingController();
@@ -42,7 +47,7 @@ class _OnLeaveState extends State<OnLeave> {
   @override
   void initState() {
     super.initState();
-        _initGeolocation();
+    _initGeolocation();
     _loadInitialDocumentNumber();
     _fetchProcessTypes();
     _setSubmissionDateToToday();
@@ -81,6 +86,7 @@ class _OnLeaveState extends State<OnLeave> {
   }
 
 
+  // Fetch process types from backend
   Future<void> _fetchProcessTypes() async {
     setState(() { _isLoadingProcessTypes = true; _processTypeError = null; });
     try {
@@ -94,37 +100,88 @@ class _OnLeaveState extends State<OnLeave> {
         } else if (data is Map && (data['ProcessTypes'] != null || data['processTypes'] != null)) {
           processTypesList = (data['ProcessTypes'] ?? data['processTypes']) as List;
         }
-        final processTypes = processTypesList.map<Map<String, String>>((type) {
+        final processTypes = processTypesList.map<String>((type) {
           if (type is Map) {
-            return {
-              'code': type['Code']?.toString() ?? type['code']?.toString() ?? '',
-              'description': type['Description']?.toString() ?? type['description']?.toString() ?? '',
-            };
+            return type['Description']?.toString() ?? type['description']?.toString() ?? '';
           } else {
-            return {'code': type.toString(), 'description': type.toString()};
+            return type.toString();
           }
-        }).where((type) => type['code']!.isNotEmpty && type['description']!.isNotEmpty).toList();
+        }).where((desc) => desc.isNotEmpty).toList();
         setState(() {
-          _processdropdownItems = processTypes;
-          _processItem = null;
+          _processdropdownItems = ['Select', ...processTypes];
+          _processItem = 'Select';
           _isLoadingProcessTypes = false;
         });
       } else {
         setState(() {
-          _processdropdownItems = [];
-          _processItem = null;
+          _processdropdownItems = ['Select'];
+          _processItem = 'Select';
           _isLoadingProcessTypes = false;
           _processTypeError = 'Failed to load process types.';
         });
       }
     } catch (e) {
       setState(() {
-        _processdropdownItems = [];
-        _processItem = null;
+        _processdropdownItems = ['Select'];
+        _processItem = 'Select';
         _isLoadingProcessTypes = false;
         _processTypeError = 'Failed to load process types.';
       });
     }
+  }
+
+  // Fetch document numbers for Update
+  Future<void> _fetchDocumentNumbers() async {
+    setState(() {
+      _loadingDocs = true;
+      _documentNumbers = [];
+      _selectedDocuNumb = null;
+    });
+    final uri = Uri.parse(
+      'http://192.168.36.25/api/DsrTry/getDocumentNumbers?dsrParam=54' // Use correct param for this activity
+    );
+    try {
+      final resp = await http.get(uri);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as List;
+        setState(() {
+          _documentNumbers = data
+            .map((e) {
+              return (e['DocuNumb']
+                   ?? e['docuNumb']
+                   ?? e['DocumentNumber']
+                   ?? e['documentNumber']
+                   ?? '').toString();
+            })
+            .where((s) => s.isNotEmpty)
+            .toList();
+        });
+      }
+    } catch (_) {
+      // ignore errors
+    } finally {
+      setState(() { _loadingDocs = false; });
+    }
+  }
+
+  // Fetch details for a document number and populate fields
+  Future<void> _fetchAndPopulateDetails(String docuNumb) async {
+    final uri = Uri.parse('http://192.168.36.25/api/DsrTry/getDsrEntry?docuNumb=$docuNumb');
+    try {
+      final resp = await http.get(uri);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        setState(() {
+          _remarksController.text = data['dsrRem01'] ?? '';
+          if (data['SubmissionDate'] != null) {
+            _submissionDateController.text = data['SubmissionDate'].toString().substring(0, 10);
+          }
+          if (data['ReportDate'] != null) {
+            _reportDateController.text = data['ReportDate'].toString().substring(0, 10);
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   void _setSubmissionDateToToday() {
@@ -185,6 +242,7 @@ class _OnLeaveState extends State<OnLeave> {
   }
 
   // Update document number fetch to use selected code
+  /*
   Future<String?> _fetchDocumentNumberFromServer() async {
     try {
       final url = Uri.parse('http://192.168.36.25/api/DsrTry/generateDocumentNumber');
@@ -214,6 +272,7 @@ class _OnLeaveState extends State<OnLeave> {
       return null;
     }
   }
+  */
 
   Future<void> _pickImage(int index) async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -260,39 +319,61 @@ class _OnLeaveState extends State<OnLeave> {
     if (_currentPosition == null) {
       await _initGeolocation();
     }
-  
+
     final dsrData = {
       'ActivityType': 'On Leave / Holiday / Off Day',
       'SubmissionDate': _submissionDateController.text,
       'ReportDate': _reportDateController.text,
-    
-     
       'dsrRem01': _remarksController.text,
       'latitude': _currentPosition?.latitude.toString() ?? '',
       'longitude': _currentPosition?.longitude.toString() ?? '',
+      'DsrParam': '54',
+      'DocuNumb': _processItem == 'Update' ? _selectedDocuNumb : null,
+      'ProcessType': _processItem == 'Update' ? 'U' : 'A',
     };
     print('Prepared DSR Data: $dsrData'); // DEBUG
 
     try {
-      await submitDsrEntry(dsrData);
+      final url = Uri.parse(
+        'http://192.168.36.25/api/DsrTry/' + (_processItem == 'Update' ? 'update' : '')
+      );
+      final resp = _processItem == 'Update'
+          ? await http.put(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(dsrData),
+            )
+          : await http.post(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(dsrData),
+            );
+
+      final success = (_processItem == 'Update' && resp.statusCode == 204) ||
+                      (_processItem != 'Update' && resp.statusCode == 201);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(exitAfter
-              ? 'Submitted successfully. Exiting...'
-              : 'Submitted successfully. Ready for new entry.'),
-          backgroundColor: Colors.green,
+          content: Text(success
+              ? exitAfter
+                  ? '${_processItem == 'Update' ? 'Updated' : 'Submitted'} successfully. Exiting...'
+                  : '${_processItem == 'Update' ? 'Updated' : 'Submitted'} successfully. Ready for new entry.'
+              : 'Error: ${resp.body}'),
+          backgroundColor: success ? Colors.green : Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
-      if (exitAfter) {
-        Navigator.of(context).pop();
-      } else {
-        _clearForm();
+      if (success) {
+        if (exitAfter) {
+          Navigator.of(context).pop();
+        } else {
+          _clearForm();
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Submission failed: ${e.toString()}'),
+          content: Text('Exception: $e'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -302,7 +383,7 @@ class _OnLeaveState extends State<OnLeave> {
 
   void _clearForm() {
     setState(() {
-      _processItem = null;
+      _processItem = 'Select';
       _submissionDateController.clear();
       _reportDateController.clear();
       _remarksController.clear();
@@ -349,56 +430,40 @@ class _OnLeaveState extends State<OnLeave> {
                 Text(_processTypeError!, style: const TextStyle(color: Colors.red)),
               _isLoadingProcessTypes
                 ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                : _buildDropdownField(
+                : DropdownButtonFormField<String>(
                     value: _processItem,
-                    items: _processdropdownItems,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: SparshTheme.cardBackground,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.md), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.sm, vertical: SparshSpacing.sm),
+                    ),
+                    items: _processdropdownItems.map((it) => DropdownMenuItem(value: it, child: Text(it))).toList(),
                     onChanged: (val) async {
                       setState(() {
                         _processItem = val;
                       });
-                      if (val != null && val['description'] == "Update") {
-                        if (_documentNumber == null) {
-                          setState(() {
-                            _documentNumberController.text = "Generating...";
-                          });
-                          try {
-                            final docNumber = await _fetchDocumentNumberFromServer();
-                            setState(() {
-                              _documentNumber = docNumber;
-                              _documentNumberController.text = docNumber ?? "";
-                            });
-                          } catch (e) {
-                            setState(() {
-                              _documentNumberController.text = "Error generating document number";
-                            });
-                          }
-                        } else {
-                          setState(() {
-                            _documentNumberController.text = _documentNumber!;
-                          });
-                        }
-                      } else {
-                        setState(() {
-                          _documentNumberController.text = "";
-                        });
-                      }
+                      if (val == 'Update') await _fetchDocumentNumbers();
                     },
-                    enabled: _processdropdownItems.isNotEmpty,
+                    validator: (v) => v == null || v == 'Select' ? 'Required' : null,
                   ),
-              if (_processItem != null && _processItem!['description'] == "Update")
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: TextFormField(
-                    controller: _documentNumberController,
-                    readOnly: true,
-                    decoration: InputDecoration(
-                      labelText: "Document Number",
-                      filled: true,
-                      fillColor: Colors.grey[200],
-                      border: const OutlineInputBorder(),
+              if (_processItem == 'Update') ...[
+                const SizedBox(height: 8.0),
+                _loadingDocs
+                  ? const Center(child: CircularProgressIndicator())
+                  : DropdownButtonFormField<String>(
+                      value: _selectedDocuNumb,
+                      decoration: const InputDecoration(labelText: 'Document Number'),
+                      items: _documentNumbers
+                          .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                          .toList(),
+                      onChanged: (v) async {
+                        setState(() => _selectedDocuNumb = v);
+                        if (v != null) await _fetchAndPopulateDetails(v);
+                      },
+                      validator: (v) => v == null ? 'Required' : null,
                     ),
-                  ),
-                ),
+              ],
               const SizedBox(height: SparshSpacing.sm),
               _buildLabel('Submission Date'),
               TextFormField(

@@ -23,6 +23,17 @@ class _OfficeWorkState extends State<OfficeWork> {
   final TextEditingController _submissionDateController = TextEditingController();
   final TextEditingController _reportDateController     = TextEditingController();
 
+  // Add/Update process type state
+  String? _processItem = 'Select';
+  List<String> _processdropdownItems = ['Select'];
+  bool _isLoadingProcessTypes = true;
+  String? _processTypeError;
+
+  // Document-number dropdown state
+  bool _loadingDocs = false;
+  List<String> _documentNumbers = [];
+  String? _selectedDocuNumb;
+
   // Dynamic field definitions
   List<Map<String, dynamic>> _fields = [];
   bool _isLoading = true;
@@ -39,6 +50,7 @@ class _OfficeWorkState extends State<OfficeWork> {
     super.initState();
     _initGeolocation();
     _loadInitialDocumentNumber();
+    _fetchProcessTypes();
     _setSubmissionDateToToday();
     _initializeFields();
   }
@@ -144,57 +156,121 @@ class _OfficeWorkState extends State<OfficeWork> {
   }
 
   Future<List<String>> _fetchProcessTypes() async {
+    setState(() { _isLoadingProcessTypes = true; _processTypeError = null; });
     try {
       final url = Uri.parse('http://192.168.36.25/api/DsrTry/getProcessTypes');
-      print('🔍 Fetching process types from: $url');
-      
       final response = await http.get(url);
-      print('📡 Process types response status: ${response.statusCode}');
-      print('📄 Process types response body: ${response.body}');
-      
+      print('ProcessTypes API status:  [33m${response.statusCode} [0m');
+      print('ProcessTypes API body: ${response.body}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('📊 Parsed process types data: $data');
-        
-        List<String> processTypes = [];
-        
-        // Try different response formats
-        if (data is Map && data.containsKey('processTypes')) {
-          // Format: {"processTypes": [{"description": "..."}, ...]}
-          final processTypesList = data['processTypes'] as List;
-          processTypes = processTypesList.map((type) => type['description'] as String).toList();
-          print('✅ Found processTypes property with ${processTypes.length} items');
-        } else if (data is Map && data.containsKey('ProcessTypes')) {
-          // Format: {"ProcessTypes": [{"Description": "..."}, ...]}
-          final processTypesList = data['ProcessTypes'] as List;
-          processTypes = processTypesList.map((type) => type['Description'] as String).toList();
-          print('✅ Found ProcessTypes property with ${processTypes.length} items');
-        } else if (data is List) {
-          // Format: [{"description": "..."}, ...]
-          processTypes = data.map((type) => type['description'] as String).toList();
-          print('✅ Found direct List format with ${processTypes.length} items');
-        } else if (data is Map && data.containsKey('data')) {
-          // Format: {"data": [{"description": "..."}, ...]}
-          final processTypesList = data['data'] as List;
-          processTypes = processTypesList.map((type) => type['description'] as String).toList();
-          print('✅ Found data property with ${processTypes.length} items');
-        } else {
-          print('❌ Unexpected response format: ${data.runtimeType}');
-          print('📋 Available keys: ${data is Map ? data.keys.toList() : 'Not a Map'}');
-          throw Exception('Unexpected response format: ${data.runtimeType}');
+        List processTypesList = [];
+        if (data is List) {
+          processTypesList = data;
+        } else if (data is Map &&
+            (data['ProcessTypes'] != null || data['processTypes'] != null)) {
+          processTypesList =
+              (data['ProcessTypes'] ?? data['processTypes']) as List;
         }
-        
-        print('✅ Process types loaded: $processTypes');
+        final processTypes = processTypesList
+            .map<String>((type) {
+              if (type is Map) {
+                return type['Description']?.toString() ??
+                    type['description']?.toString() ??
+                    '';
+              } else {
+                return type.toString();
+              }
+            })
+            .where((desc) => desc.isNotEmpty)
+            .toList();
+        setState(() {
+          _processdropdownItems = ['Select', ...processTypes];
+          _processItem = 'Select';
+        });
         return processTypes;
       } else {
-        print('❌ Failed to fetch process types: ${response.statusCode} - ${response.body}');
-        throw Exception('Failed to fetch process types: ${response.statusCode}');
+        setState(() {
+          _processTypeError = 'Failed to load process types: ${response.statusCode}';
+          _processdropdownItems = ['Select'];
+          _processItem = 'Select';
+        });
+        return ['Select'];
       }
     } catch (e) {
-      print('💥 Error fetching process types: $e');
-      // Return default process types as fallback
-      return ['Select', 'Add', 'Update'];
+      setState(() {
+        _processTypeError = 'Error: $e';
+        _processdropdownItems = ['Select'];
+        _processItem = 'Select';
+      });
+      return ['Select'];
+    } finally {
+      setState(() {
+        _isLoadingProcessTypes = false;
+      });
     }
+    // Fallback return in case of unexpected flow
+    return ['Select'];
+  }
+
+  // Fetch document numbers for Update
+  Future<void> _fetchDocumentNumbers() async {
+    setState(() {
+      _loadingDocs = true;
+      _documentNumbers = [];
+      _selectedDocuNumb = null;
+    });
+    final uri = Uri.parse(
+      'http://192.168.36.25/api/DsrTry/getDocumentNumbers?dsrParam=53' // Use correct param for this activity
+    );
+    try {
+      final resp = await http.get(uri);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as List;
+        setState(() {
+          _documentNumbers = data
+            .map((e) {
+              return (e['DocuNumb']
+                   ?? e['docuNumb']
+                   ?? e['DocumentNumber']
+                   ?? e['documentNumber']
+                   ?? '').toString();
+            })
+            .where((s) => s.isNotEmpty)
+            .toList();
+        });
+      }
+    } catch (_) {
+      // ignore errors
+    } finally {
+      setState(() { _loadingDocs = false; });
+    }
+  }
+
+  // Fetch details for a document number and populate fields
+  Future<void> _fetchAndPopulateDetails(String docuNumb) async {
+    final uri = Uri.parse('http://192.168.36.25/api/DsrTry/getDsrEntry?docuNumb=$docuNumb');
+    try {
+      final resp = await http.get(uri);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        setState(() {
+          for (final field in _fields) {
+            if (field['type'] == 'dropdown') {
+              field['value'] = data[field['key']] ?? 'Select';
+            } else if (field['type'] == 'text' || field['type'] == 'number') {
+              field['controller'].text = data[field['key']] ?? '';
+            }
+          }
+          if (data['SubmissionDate'] != null) {
+            _submissionDateController.text = data['SubmissionDate'].toString().substring(0, 10);
+          }
+          if (data['ReportDate'] != null) {
+            _reportDateController.text = data['ReportDate'].toString().substring(0, 10);
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -321,7 +397,6 @@ class _OfficeWorkState extends State<OfficeWork> {
   void _onSubmit({required bool exitAfter}) async {
     if (!_formKey.currentState!.validate()) return;
 
-    // ensure we have location
     if (_currentPosition == null) {
       await _initGeolocation();
     }
@@ -330,8 +405,6 @@ class _OfficeWorkState extends State<OfficeWork> {
       'ActivityType': 'Office Work',
       'SubmissionDate': _submissionDateController.text,
       'ReportDate': _reportDateController.text,
-      
-      // Map dynamic fields to their keys
       ...{
         for (final field in _fields)
           if (field['type'] == 'dropdown')
@@ -340,32 +413,55 @@ class _OfficeWorkState extends State<OfficeWork> {
             field['key'] as String: field['controller'].text
       },
       'Images': _selectedImages.map((file) => file?.path).toList(),
-      // Geography
       'latitude': _currentPosition?.latitude.toString() ?? '',
       'longitude': _currentPosition?.longitude.toString() ?? '',
+      'DsrParam': '53',
+      'DocuNumb': _processItem == 'Update' ? _selectedDocuNumb : null,
+      'ProcessType': _processItem == 'Update' ? 'U' : 'A',
     };
 
     try {
-      await submitDsrEntry(dsrData);
+      final url = Uri.parse(
+        'http://192.168.36.25/api/DsrTry/' + (_processItem == 'Update' ? 'update' : '')
+      );
+      final resp = _processItem == 'Update'
+          ? await http.put(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(dsrData),
+            )
+          : await http.post(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(dsrData),
+            );
+
+      final success = (_processItem == 'Update' && resp.statusCode == 204) ||
+                      (_processItem != 'Update' && resp.statusCode == 201);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(exitAfter
-              ? 'Submitted successfully. Exiting...'
-              : 'Submitted successfully. Ready for new entry.'),
-          backgroundColor: SparshTheme.successGreen,
+          content: Text(success
+              ? exitAfter
+                  ? '${_processItem == 'Update' ? 'Updated' : 'Submitted'} successfully. Exiting...'
+                  : '${_processItem == 'Update' ? 'Updated' : 'Submitted'} successfully. Ready for new entry.'
+              : 'Error: ${resp.body}'),
+          backgroundColor: success ? Colors.green : Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
-      if (exitAfter) {
-        Navigator.of(context).pop();
-      } else {
-        _clearForm();
+      if (success) {
+        if (exitAfter) {
+          Navigator.of(context).pop();
+        } else {
+          _clearForm();
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Submission failed:  e.toString()}'),
-          backgroundColor: SparshTheme.errorRed,
+        SnackBar(
+          content: Text('Exception: $e'),
+          backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -461,46 +557,45 @@ class _OfficeWorkState extends State<OfficeWork> {
               // Render dynamic fields
               // Only handle the Process Type dropdown and Document Number here
               _buildLabel(_fields[0]['label']),
-              _buildDropdownField(
-                value: _fields[0]['value'],
-                items: List<String>.from(_fields[0]['items']),
-                onChanged: (val) async {
-                  setState(() {
-                    _fields[0]['value'] = val;
-                  });
-                  
-                  if (val == "Update") {
-                    // Only generate document number if we don't already have one
-                    if (_documentNumber == null) {
+              if (_processTypeError != null)
+                Text(_processTypeError!, style: const TextStyle(color: Colors.red)),
+              _isLoadingProcessTypes
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                : DropdownButtonFormField<String>(
+                    value: _processItem,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: SparshTheme.cardBackground,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.md), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.sm, vertical: SparshSpacing.sm),
+                    ),
+                    items: _processdropdownItems.map((it) => DropdownMenuItem(value: it, child: Text(it))).toList(),
+                    onChanged: (val) async {
                       setState(() {
-                        _documentNumberController.text = "Generating...";
+                        _processItem = val;
+                        _fields[0]['value'] = val;
                       });
-                      
-                      try {
-                        final docNumber = await _fetchDocumentNumberFromServer();
-                        setState(() {
-                          _documentNumber = docNumber;
-                          _documentNumberController.text = docNumber ?? "";
-                        });
-                      } catch (e) {
-                        setState(() {
-                          _documentNumberController.text = "Error generating document number";
-                        });
-                      }
-                    } else {
-                      // If we already have a document number, just display it
-                      setState(() {
-                        _documentNumberController.text = _documentNumber!;
-                      });
-                    }
-                  } else {
-                    // For "Add" or any other process type, just clear the display but keep the document number in memory
-                    setState(() {
-                      _documentNumberController.text = "";
-                    });
-                  }
-                },
-              ),
+                      if (val == 'Update') await _fetchDocumentNumbers();
+                    },
+                    validator: (v) => v == null || v == 'Select' ? 'Required' : null,
+                  ),
+              if (_processItem == 'Update') ...[
+                const SizedBox(height: 8.0),
+                _loadingDocs
+                  ? const Center(child: CircularProgressIndicator())
+                  : DropdownButtonFormField<String>(
+                      value: _selectedDocuNumb,
+                      decoration: const InputDecoration(labelText: 'Document Number'),
+                      items: _documentNumbers
+                          .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                          .toList(),
+                      onChanged: (v) async {
+                        setState(() => _selectedDocuNumb = v);
+                        if (v != null) await _fetchAndPopulateDetails(v);
+                      },
+                      validator: (v) => v == null ? 'Required' : null,
+                    ),
+              ],
               if (_fields[0]['value'] == "Update")
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0),

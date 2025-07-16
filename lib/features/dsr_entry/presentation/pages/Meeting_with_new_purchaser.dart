@@ -18,8 +18,17 @@ class MeetingWithNewPurchaser extends StatefulWidget {
 }
 
 class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
+  // Process type dropdown state
   String? _processItem = 'Select';
-  final List<String> _processdropdownItems = ['Select', 'Add', 'Update'];
+  List<String> _processdropdownItems = ['Select'];
+  bool _isLoadingProcessTypes = true;
+  String? _processTypeError;
+
+  // Document-number dropdown state
+  bool _loadingDocs = false;
+  List<String> _documentNumbers = [];
+  String? _selectedDocuNumb;
+
   final _submissionDateController = TextEditingController();
   final _reportDateController = TextEditingController();
   final _purchaserNameController = TextEditingController();
@@ -40,6 +49,7 @@ class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
   void initState() {
     super.initState();
     _loadInitialDocumentNumber();
+    _fetchProcessTypes();
     _setSubmissionDateToToday();
   }
 
@@ -51,6 +61,114 @@ class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
         _documentNumber = savedDocNumber;
       });
     }
+  }
+
+  // Fetch process types from backend
+  Future<void> _fetchProcessTypes() async {
+    setState(() { _isLoadingProcessTypes = true; _processTypeError = null; });
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getProcessTypes');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        List processTypesList = [];
+        if (data is List) {
+          processTypesList = data;
+        } else if (data is Map &&
+            (data['ProcessTypes'] != null || data['processTypes'] != null)) {
+          processTypesList =
+              (data['ProcessTypes'] ?? data['processTypes']) as List;
+        }
+        final processTypes = processTypesList
+            .map<String>((type) {
+              if (type is Map) {
+                return type['Description']?.toString() ??
+                    type['description']?.toString() ??
+                    '';
+              } else {
+                return type.toString();
+              }
+            })
+            .where((desc) => desc.isNotEmpty)
+            .toList();
+        setState(() {
+          _processdropdownItems = ['Select', ...processTypes];
+          _processItem = 'Select';
+          _isLoadingProcessTypes = false;
+        });
+      } else {
+        throw Exception('Failed to load process types.');
+      }
+    } catch (e) {
+      setState(() {
+        _processdropdownItems = ['Select'];
+        _processItem = 'Select';
+        _isLoadingProcessTypes = false;
+        _processTypeError = 'Failed to load process types.';
+      });
+    }
+  }
+
+  // Fetch document numbers for Update
+  Future<void> _fetchDocumentNumbers() async {
+    setState(() {
+      _loadingDocs = true;
+      _documentNumbers = [];
+      _selectedDocuNumb = null;
+    });
+    final uri = Uri.parse(
+      'http://192.168.36.25/api/DsrTry/getDocumentNumbers?dsrParam=50' // Use correct param for this activity
+    );
+    try {
+      final resp = await http.get(uri);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as List;
+        setState(() {
+          _documentNumbers = data
+            .map((e) {
+              return (e['DocuNumb']
+                   ?? e['docuNumb']
+                   ?? e['DocumentNumber']
+                   ?? e['documentNumber']
+                   ?? '').toString();
+            })
+            .where((s) => s.isNotEmpty)
+            .toList();
+        });
+      }
+    } catch (_) {
+      // ignore errors
+    } finally {
+      setState(() { _loadingDocs = false; });
+    }
+  }
+
+  // Fetch details for a document number and populate fields
+  Future<void> _fetchAndPopulateDetails(String docuNumb) async {
+    final uri = Uri.parse('http://192.168.36.25/api/DsrTry/getDsrEntry?docuNumb=$docuNumb');
+    try {
+      final resp = await http.get(uri);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        setState(() {
+          _purchaserNameController.text = data['Purchaser'] ?? '';
+          _topicDiscussedController.text = data['dsrRem01'] ?? '';
+          _remarksController.text = data['dsrRem02'] ?? '';
+          if (data['SubmissionDate'] != null) {
+            _selectedSubmissionDate = DateTime.tryParse(data['SubmissionDate']);
+            if (_selectedSubmissionDate != null) {
+              _submissionDateController.text = DateFormat('yyyy-MM-dd').format(_selectedSubmissionDate!);
+            }
+          }
+          if (data['ReportDate'] != null) {
+            _selectedReportDate = DateTime.tryParse(data['ReportDate']);
+            if (_selectedReportDate != null) {
+              _reportDateController.text = DateFormat('yyyy-MM-dd').format(_selectedReportDate!);
+            }
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -179,10 +297,8 @@ class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
       'ActivityType': 'Meeting with New Purchaser(Trade Purchaser) / Retailer',
       'SubmissionDate': _selectedSubmissionDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
       'ReportDate': _selectedReportDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
-      'CreateId': 'SYSTEM',
-      'AreaCode': _processItem ?? '',
-      'Purchaser': _purchaserNameController.text,
-      'PurchaserCode': '',
+
+
       'dsrRem01': _topicDiscussedController.text,
       'dsrRem02': _remarksController.text,
       'dsrRem03': '',
@@ -191,28 +307,52 @@ class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
       'dsrRem06': '',
       'dsrRem07': '',
       'dsrRem08': '',
+      'DsrParam': '50',
+      'DocuNumb': _processItem == 'Update' ? _selectedDocuNumb : null,
+      'ProcessType': _processItem == 'Update' ? 'U' : 'A',
     };
 
     try {
-      await submitDsrEntry(dsrData);
+      final url = Uri.parse(
+        'http://192.168.36.25/api/DsrTry/' + (_processItem == 'Update' ? 'update' : '')
+      );
+      final resp = _processItem == 'Update'
+          ? await http.put(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(dsrData),
+            )
+          : await http.post(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(dsrData),
+            );
+
+      final success = (_processItem == 'Update' && resp.statusCode == 204) ||
+                      (_processItem != 'Update' && resp.statusCode == 201);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(exitAfter
-              ? 'Submitted successfully. Exiting...'
-              : 'Submitted successfully. Ready for new entry.'),
-          backgroundColor: Colors.green,
+          content: Text(success
+              ? exitAfter
+                  ? '${_processItem == 'Update' ? 'Updated' : 'Submitted'} successfully. Exiting...'
+                  : '${_processItem == 'Update' ? 'Updated' : 'Submitted'} successfully. Ready for new entry.'
+              : 'Error: ${resp.body}'),
+          backgroundColor: success ? Colors.green : Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
-      if (exitAfter) {
-        Navigator.of(context).pop();
-      } else {
-        _resetForm();
+      if (success) {
+        if (exitAfter) {
+          Navigator.of(context).pop();
+        } else {
+          _resetForm();
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Submission failed: \\${e.toString()}'),
+          content: Text('Exception: $e'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -344,68 +484,45 @@ class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
           children: [
             _cardTitle(Icons.settings_outlined, 'Process'),
             const SizedBox(height: SparshSpacing.md),
-            DropdownButtonFormField<String>(
-              value: _processItem,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: SparshTheme.lightGreyBackground,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.sm), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
-              ),
-              isExpanded: true,
-              items: _processdropdownItems.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
-              onChanged: (val) async {
-                setState(() {
-                  _processItem = val;
-                });
-                
-                if (val == "Update") {
-                  // Only generate document number if we don't already have one
-                  if (_documentNumber == null) {
-                    setState(() {
-                      _documentNumberController.text = "Generating...";
-                    });
-                    
-                    try {
-                      final docNumber = await _fetchDocumentNumberFromServer();
-                      setState(() {
-                        _documentNumber = docNumber;
-                        _documentNumberController.text = docNumber ?? "";
-                      });
-                    } catch (e) {
-                      setState(() {
-                        _documentNumberController.text = "Error generating document number";
-                      });
-                    }
-                  } else {
-                    // If we already have a document number, just display it
-                    setState(() {
-                      _documentNumberController.text = _documentNumber!;
-                    });
-                  }
-                } else {
-                  // For "Add" or any other process type, just clear the display but keep the document number in memory
-                  setState(() {
-                    _documentNumberController.text = "";
-                  });
-                }
-              },
-              validator: (val) => val == 'Select' ? 'Please select a process' : null,
-            ),
-            if (_processItem == "Update")
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: TextFormField(
-                  controller: _documentNumberController,
-                  readOnly: true,
+            if (_processTypeError != null)
+              Text(_processTypeError!, style: const TextStyle(color: Colors.red)),
+            _isLoadingProcessTypes
+              ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+              : DropdownButtonFormField<String>(
+                  value: _processItem,
                   decoration: InputDecoration(
-                    labelText: "Document Number",
                     filled: true,
-                    fillColor: Colors.grey[200],
-                    border: const OutlineInputBorder(),
+                    fillColor: SparshTheme.lightGreyBackground,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.sm), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
                   ),
+                  isExpanded: true,
+                  items: _processdropdownItems.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
+                  onChanged: (val) async {
+                    setState(() {
+                      _processItem = val;
+                    });
+                    if (val == 'Update') await _fetchDocumentNumbers();
+                  },
+                  validator: (val) => val == 'Select' ? 'Please select a process' : null,
                 ),
-              ),
+            if (_processItem == 'Update') ...[
+              const SizedBox(height: 8.0),
+              _loadingDocs
+                ? const Center(child: CircularProgressIndicator())
+                : DropdownButtonFormField<String>(
+                    value: _selectedDocuNumb,
+                    decoration: const InputDecoration(labelText: 'Document Number'),
+                    items: _documentNumbers
+                        .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                        .toList(),
+                    onChanged: (v) async {
+                      setState(() => _selectedDocuNumb = v);
+                      if (v != null) await _fetchAndPopulateDetails(v);
+                    },
+                    validator: (v) => v == null ? 'Required' : null,
+                  ),
+            ],
           ],
         ),
       ),
