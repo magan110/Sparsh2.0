@@ -4,9 +4,13 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/document_number_storage.dart';
 import 'dsr_entry.dart';
+import 'dsr_exception_entry.dart';
 
 class PhoneCallWithBuilder extends StatefulWidget {
   const PhoneCallWithBuilder({super.key});
@@ -18,6 +22,8 @@ class PhoneCallWithBuilder extends StatefulWidget {
 class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
   final _formKey = GlobalKey<FormState>();
 
+  // Geolocation
+  Position? _currentPosition;
   // Dynamic data
   List<String> _processTypes = ['Select'];
   List<Map<String, String>> _areaCodes = [];
@@ -40,23 +46,91 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
   final TextEditingController _reportDateController     = TextEditingController();
 
   final TextEditingController _codeController         = TextEditingController();
-  final TextEditingController _siteController         = TextEditingController();
-  final TextEditingController _contractorController   = TextEditingController();
+  // final TextEditingController _siteController         = TextEditingController();
+  // final TextEditingController _contractorController   = TextEditingController();
+  // String? _metWithItem = 'Select';
+  // final List<String> _metWithItems = ['Select', 'Builder', 'Contractor'];
+  // final TextEditingController _namedesgController     = TextEditingController();
+  // final TextEditingController _topicController        = TextEditingController();
+  // final TextEditingController _ugaiRecoveryController = TextEditingController();
+  // final TextEditingController _grievanceController    = TextEditingController();
+  // final TextEditingController _otherPointController   = TextEditingController();
+
+  // Dynamic field config for activity type
+  final Map<String, List<Map<String, String>>> activityFieldConfig = {
+    "Phone Call with Builder /Stockist": [
+      {"label": "Site Name", "key": "siteName", "rem": "dsrRem01"},
+      {"label": "Contractor Working at Site", "key": "contractorName", "rem": "dsrRem02"},
+      {"label": "Met With", "key": "metWith", "rem": "dsrRem03"},
+      {"label": "Name and Designation of Person", "key": "nameDesg", "rem": "dsrRem04"},
+      {"label": "Topic Discussed", "key": "topic", "rem": "dsrRem05"},
+      {"label": "Ugai Recovery Plans", "key": "ugaiRecovery", "rem": "dsrRem06"},
+      {"label": "Any Purchaser Grievances", "key": "grievance", "rem": "dsrRem07"},
+      {"label": "Any Other Point", "key": "otherPoint", "rem": "dsrRem08"},
+    ],
+  };
+
+  // Dynamic controllers for text fields
+  final Map<String, TextEditingController> _controllers = {};
   String? _metWithItem = 'Select';
   final List<String> _metWithItems = ['Select', 'Builder', 'Contractor'];
-  final TextEditingController _namedesgController     = TextEditingController();
-  final TextEditingController _topicController        = TextEditingController();
-  final TextEditingController _ugaiRecoveryController = TextEditingController();
-  final TextEditingController _grievanceController    = TextEditingController();
-  final TextEditingController _otherPointController   = TextEditingController();
 
   List<File?> _selectedImages = [null];
+
+  final _documentNumberController = TextEditingController();
+  String? _documentNumber;
+
+  String get _selectedActivityType => "Phone Call with Builder /Stockist";
 
   @override
   void initState() {
     super.initState();
+    _initGeolocation();
+    _loadInitialDocumentNumber();
     _initializeData();
     _setSubmissionDateToToday();
+    _initControllersForActivity(_selectedActivityType);
+  }
+  Future<void> _initGeolocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) throw Exception('Location services disabled.');
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Location permissions denied.');
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Location permissions permanently denied.');
+      }
+      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        _currentPosition = pos;
+      });
+    } catch (e) {
+      debugPrint('Error getting location: $e');
+    }
+  }
+  
+  void _initControllersForActivity(String activityType) {
+    final config = activityFieldConfig[activityType] ?? [];
+    for (final field in config) {
+      if (field['key'] != 'metWith') {
+        _controllers[field['key']!] = TextEditingController();
+      }
+    }
+  }
+
+  // Load document number when screen initializes
+  Future<void> _loadInitialDocumentNumber() async {
+    final savedDocNumber = await DocumentNumberStorage.loadDocumentNumber(DocumentNumberKeys.phoneCallBuilder);
+    if (savedDocNumber != null) {
+      setState(() {
+        _documentNumber = savedDocNumber;
+      });
+    }
   }
 
   Future<void> _initializeData() async {
@@ -118,7 +192,6 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
     try {
       final url = Uri.parse('http://192.168.36.25/api/DsrTry/getProcessTypes');
       print('🔍 Fetching process types from: $url');
-      
       final response = await http.get(url).timeout(
         const Duration(seconds: 15),
         onTimeout: () {
@@ -128,87 +201,37 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
       print('📡 Process types response status: ${response.statusCode}');
       print('📄 Process types response body: ${response.body}');
       print('📄 Response headers: ${response.headers}');
-      
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('📊 Parsed process types data: $data');
-        
         List<String> processTypes = [];
-        
-        // Based on the C# controller, the response format is:
-        // {"processTypes": [{"code": "...", "description": "..."}, ...]}
+        // Accept both Map with processTypes key and direct List
         if (data is Map && data.containsKey('processTypes')) {
           final processTypesList = data['processTypes'] as List;
-          print('📋 ProcessTypes list type: ${processTypesList.runtimeType}');
-          print('📋 First item type: ${processTypesList.isNotEmpty ? processTypesList.first.runtimeType : 'Empty list'}');
-          print('📋 First item: ${processTypesList.isNotEmpty ? processTypesList.first : 'Empty list'}');
-          
           processTypes = processTypesList.map((type) {
-            print('📝 Processing type item: $type (type: ${type.runtimeType})');
-            // Handle both object format and direct string format
             if (type is Map) {
-              print('📝 Type item keys: ${type.keys.toList()}');
-              print('📝 Type item values: ${type.values.toList()}');
-              // Try different possible property names
-              final description = type['Description']?.toString() ?? 
-                                type['description']?.toString() ?? 
-                                type['desc']?.toString();
-              final code = type['Code']?.toString() ?? 
-                          type['code']?.toString();
-              print('📝 Processing type object - Description: "$description", Code: "$code"');
+              final description = type['Description']?.toString() ?? type['description']?.toString() ?? type['desc']?.toString();
+              final code = type['Code']?.toString() ?? type['code']?.toString();
               return description ?? code ?? '';
             } else {
-              print('📝 Processing type as string: "$type"');
               return type.toString();
             }
           }).where((type) => type.isNotEmpty).toList();
-          print('✅ Found ProcessTypes property with ${processTypes.length} items');
-          
-          // If processTypes is empty, try to use defaultType mapping
-          if (processTypes.isEmpty && data.containsKey('defaultType')) {
-            final defaultType = data['defaultType'] as Map;
-            processTypes = defaultType.values.map((value) => value.toString()).toList();
-            print('✅ Using DefaultType mapping: $processTypes');
-          }
+          print('✅ Found processTypes property with ${processTypes.length} items');
+        } else if (data is List) {
+          processTypes = data.map((type) {
+            if (type is Map) {
+              final description = type['Description']?.toString() ?? type['description']?.toString() ?? type['desc']?.toString();
+              final code = type['Code']?.toString() ?? type['code']?.toString();
+              return description ?? code ?? '';
+            } else {
+              return type.toString();
+            }
+          }).where((type) => type.isNotEmpty).toList();
+          print('✅ API returned direct list with ${processTypes.length} items');
         } else {
-          print('❌ Unexpected response format: ${data.runtimeType}');
-          print('📋 Available keys: ${data is Map ? data.keys.toList() : 'Not a Map'}');
-          print('📋 Full response data: $data');
-          
-          // Try to extract process types from the response in different ways
-          if (data is Map) {
-            // Try to find any array that might contain process types
-            for (var entry in data.entries) {
-              if (entry.value is List) {
-                print('📋 Found list in key "${entry.key}": ${entry.value}');
-                final list = entry.value as List;
-                if (list.isNotEmpty) {
-                  final firstItem = list.first;
-                  print('📋 First item in "${entry.key}": $firstItem (type: ${firstItem.runtimeType})');
-                }
-              }
-            }
-            
-            // Try to use processTypes if it exists but we missed it
-            if (data.containsKey('processTypes')) {
-              print('📋 Found processTypes key, trying to use it...');
-              final processTypesList = data['processTypes'] as List;
-              processTypes = processTypesList.map((type) {
-                if (type is Map) {
-                  return type['description']?.toString() ?? type['code']?.toString() ?? '';
-                } else {
-                  return type.toString();
-                }
-              }).where((type) => type.isNotEmpty).toList();
-              print('✅ Successfully extracted process types: $processTypes');
-            }
-          }
-          
-          if (processTypes.isEmpty) {
-            throw Exception('Unexpected response format: ${data.runtimeType}. Available keys: ${data is Map ? data.keys.toList() : 'Not a Map'}');
-          }
+          throw Exception('Unexpected response format for process types: ${data.runtimeType}');
         }
-        
         setState(() {
           _processTypes = ['Select', ...processTypes];
           _isLoadingProcessTypes = false;
@@ -240,7 +263,6 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
     try {
       final url = Uri.parse('http://192.168.36.25/api/DsrTry/getAreaCodes');
       print('🔍 Fetching area codes from: $url');
-      
       final response = await http.get(url).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
@@ -249,14 +271,24 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
       );
       print('📡 Area codes response status: ${response.statusCode}');
       print('📄 Area codes response body: ${response.body}');
-      
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('📊 Parsed area codes data: $data');
-        
         if (data is List) {
-          print('✅ Area codes is a List with ${data.length} items');
-          
+          if (data.isEmpty) {
+            setState(() {
+              _areaCodes = [{'code': 'Select', 'name': 'Select'}];
+              _isLoadingAreaCodes = false;
+            });
+            print('❌ Area codes list is empty');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('No area codes available.'),
+                backgroundColor: SparshTheme.errorRed,
+              ),
+            );
+            return;
+          }
           // Based on the C# controller, the response format is:
           // [{"Code": "...", "Name": "..."}, ...]
           final processedAreaCodes = data.map((item) {
@@ -285,9 +317,7 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
             }
             return isValid;
           }).toList();
-          
           print('✅ Processed ${processedAreaCodes.length} valid area codes');
-          
           // Remove duplicates by code
           final seenCodes = <String>{};
           final uniqueAreaCodes = [
@@ -298,7 +328,6 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
               return true;
             })
           ];
-          
           setState(() {
             _areaCodes = uniqueAreaCodes;
             _isLoadingAreaCodes = false;
@@ -308,13 +337,24 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
               _selectedAreaCode = 'Select';
             }
           });
-          
           print('📋 Final area codes list length: ${_areaCodes.length}');
           print('📋 First 5 area codes: ${_areaCodes.take(5).toList()}');
         } else {
           print('❌ Area codes data is not a List, it is: ${data.runtimeType}');
           throw Exception('Invalid response format: expected List but got ${data.runtimeType}');
         }
+      } else if (response.statusCode == 404) {
+        setState(() {
+          _areaCodes = [{'code': 'Select', 'name': 'Select'}];
+          _isLoadingAreaCodes = false;
+        });
+        print('❌ No area codes found (404)');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No area codes found.'),
+            backgroundColor: SparshTheme.errorRed,
+          ),
+        );
       } else {
         print('❌ Failed to fetch area codes: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to fetch area codes: ${response.statusCode}');
@@ -332,8 +372,8 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
           backgroundColor: SparshTheme.errorRed,
         ),
       );
-      }
     }
+  }
 
   Future<void> _fetchPurchasers(String areaCode) async {
     if (areaCode == 'Select') {
@@ -382,7 +422,7 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
               if (item['code']!.isEmpty || seenCodes.contains(item['code'])) return false;
               seenCodes.add(item['code']!);
               return true;
-            }).toList()
+            })
           ];
           setState(() {
             _purchasers = uniquePurchasers;
@@ -433,37 +473,69 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
 
     try {
       print('🔍 Fetching purchaser codes for area: $_selectedAreaCode, purchaser type: $purchaserCode');
-      
-      // Based on the C# controller, use getPurchaserCode endpoint
+      // Use correct query parameter name: purchaserFlag
       final url = Uri.parse('http://192.168.36.25/api/DsrTry/getPurchaserCode')
           .replace(queryParameters: {
         'areaCode': _selectedAreaCode,
-        'purchaserType': purchaserCode,
+        'purchaserFlag': purchaserCode,
       });
-      
       print('🌐 Calling purchaser code API: $url');
-      
       final response = await http.get(url);
       print('📡 Purchaser code response status: ${response.statusCode}');
       print('📄 Purchaser code response body: ${response.body}');
-      
-      final data = jsonDecode(response.body);
+
+      // Handle empty or invalid response
+      if (response.body == null || response.body.trim().isEmpty) {
+        setState(() {
+          _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
+          _isLoadingPurchaserCodes = false;
+        });
+        print('❌ Purchaser code API returned empty response');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No purchaser codes found (empty response).'),
+            backgroundColor: SparshTheme.errorRed,
+          ),
+        );
+        return;
+      }
+
+      dynamic data;
+      try {
+        data = jsonDecode(response.body);
+      } catch (e) {
+        setState(() {
+          _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
+          _isLoadingPurchaserCodes = false;
+        });
+        print('❌ Purchaser code API returned invalid JSON');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Invalid response from server for purchaser codes.'),
+            backgroundColor: SparshTheme.errorRed,
+          ),
+        );
+        return;
+      }
       print('Purchaser code API data: $data'); // Debug print
-      
+
       // Accept both PurchaserCodes and purchaserCodes
-      if (data is Map && (data.containsKey('PurchaserCodes') || data.containsKey('purchaserCodes'))) {
-        final purchaserCodesList = (data['PurchaserCodes'] ?? data['purchaserCodes']) as List;
-        final purchaserCodes = purchaserCodesList.map((code) => code.toString()).toList();
-        
+      if (data is Map && (data.containsKey('purchaserCodes') || data.containsKey('PurchaserCodes'))) {
+        final purchaserCodesList = (data['purchaserCodes'] ?? data['PurchaserCodes']) as List;
+        // Parse objects to extract code and name
+        final purchaserCodes = purchaserCodesList.map((item) => {
+          'code': (item['code'] ?? item['Code'] ?? '').toString().trim(),
+          'name': (item['name'] ?? item['Name'] ?? item['code'] ?? item['Code'] ?? '').toString().trim(),
+        }).where((item) => item['code']!.isNotEmpty).toList();
+        print('Parsed purchaserCodes: $purchaserCodes');
         if (purchaserCodes.isNotEmpty) {
           setState(() {
             _purchaserCodes = [
               {'code': 'Select', 'name': 'Select'},
-              ...purchaserCodes.map((code) => {'code': code, 'name': code}).toList()
+              ...purchaserCodes
             ];
             _isLoadingPurchaserCodes = false;
           });
-          
           print('📋 Purchaser codes loaded: $purchaserCodes');
         } else {
           setState(() {
@@ -473,7 +545,7 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
           print('⚠️ No purchaser codes found for the given parameters');
         }
       } else {
-        throw Exception('Invalid response format: expected Map with PurchaserCodes but got ${data.runtimeType}. Data: $data');
+        throw Exception('Invalid response format: expected Map with PurchaserCodes but got  [1m${data.runtimeType} [0m. Data: $data');
       }
     } catch (e) {
       print('💥 Error fetching purchaser codes: $e');
@@ -529,13 +601,10 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
     _submissionDateController.dispose();
     _reportDateController.dispose();
     _codeController.dispose();
-    _siteController.dispose();
-    _contractorController.dispose();
-    _namedesgController.dispose();
-    _topicController.dispose();
-    _ugaiRecoveryController.dispose();
-    _grievanceController.dispose();
-    _otherPointController.dispose();
+    _documentNumberController.dispose();
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -550,10 +619,37 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
     final picked = await showDatePicker(
       context: context,
       initialDate: now,
-      firstDate: threeDaysAgo,
-      lastDate: DateTime(now.year + 5),
+      firstDate: DateTime(now.year - 10),
+      lastDate: now,
     );
     if (picked != null) {
+      if (picked.isBefore(threeDaysAgo)) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Please Put Valid DSR Date.'),
+            content: const Text(
+              'You Can submit DSR only Last Three Days. If You want to submit back date entry Please enter Exception entry (Path : Transcation --> DSR Exception Entry). Take Approval from concerned and Fill DSR Within 3 days after approval.'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DsrExceptionEntryPage()),
+                  );
+                },
+                child: const Text('Go to Exception Entry'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
       setState(() {
         _reportDateController.text = DateFormat('yyyy-MM-dd').format(picked);
       });
@@ -603,84 +699,50 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
     }
   }
 
-  void _onSubmit({required bool exitAfter}) async {
+  Future<void> _onSubmit({required bool exitAfter}) async {
     if (!_formKey.currentState!.validate()) return;
-    
-    // Additional validation for dropdown fields
-    if (_selectedProcessType == 'Select') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select a Process Type'),
-          backgroundColor: SparshTheme.errorRed,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    
-    if (_selectedAreaCode == 'Select') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select an Area Code'),
-          backgroundColor: SparshTheme.errorRed,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    
-    if (_selectedPurchaser == 'Select') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select a Purchaser Type'),
-          backgroundColor: SparshTheme.errorRed,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    
-    if (_selectedPurchaserCode == 'Select') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select a Purchaser Code'),
-          backgroundColor: SparshTheme.errorRed,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    
-    if (_metWithItem == 'Select') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select who you met with'),
-          backgroundColor: SparshTheme.errorRed,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
+
+    // ensure we have location
+    if (_currentPosition == null) {
+      await _initGeolocation();
     }
 
-    final dsrData = {
-      'ActivityType': 'Phone Call with Builder /Stockist',
+    final dsrData = <String, dynamic>{
+      'ActivityType': _selectedActivityType,
       'SubmissionDate': _submissionDateController.text,
       'ReportDate': _reportDateController.text,
-      'CreateId': 'SYSTEM',
+      'CreateId': '2948',
       'AreaCode': _selectedAreaCode ?? '',
       'Purchaser': _selectedPurchaser ?? '',
       'PurchaserCode': _selectedPurchaserCode ?? '',
       'ProcessType': _selectedProcessType ?? '',
-      'MetWith': _metWithItem ?? '',
-      'dsrRem01': _namedesgController.text,
-      'dsrRem02': _topicController.text,
-      'dsrRem03': _ugaiRecoveryController.text,
-      'dsrRem04': _grievanceController.text,
-      'dsrRem05': _otherPointController.text,
-      'dsrRem06': _siteController.text,
-      'dsrRem07': _contractorController.text,
-      'dsrRem08': _codeController.text,
+      // Geography
+      'latitude': _currentPosition?.latitude.toString() ?? '',
+      'longitude': _currentPosition?.longitude.toString() ?? '',
     };
+
+    // Build dsrData dynamically from config
+    final config = activityFieldConfig[_selectedActivityType] ?? [];
+    print('Submitting PurchaserCode: $_selectedPurchaserCode');
+    for (final field in config) {
+      if (field['key'] == 'metWith') {
+        dsrData[field['rem']!] = _metWithItem ?? '';
+      } else {
+        dsrData[field['rem']!] = _controllers[field['key']!]?.text ?? '';
+      }
+    }
+
+    // Add images to dsrData
+    final imageData = <String, dynamic>{};
+    for (int i = 0; i < _selectedImages.length; i++) {
+      final file = _selectedImages[i];
+      if (file != null) {
+        final imageBytes = await file.readAsBytes();
+        final base64Image = 'data:image/jpeg;base64,${base64Encode(imageBytes)}';
+        imageData['image${i + 1}'] = base64Image;
+      }
+    }
+    dsrData['Images'] = imageData;
 
     try {
       await submitDsrEntry(dsrData);
@@ -701,7 +763,7 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Submission failed: ${e.toString()}'),
+          content: Text('Submission failed:  ${e.toString()}'),
           backgroundColor: SparshTheme.errorRed,
           behavior: SnackBarBehavior.floating,
         ),
@@ -718,18 +780,104 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
       _selectedPurchaser = 'Select';
       _selectedPurchaserCode = 'Select';
       _codeController.clear();
-      _siteController.clear();
-      _contractorController.clear();
       _metWithItem = 'Select';
-      _namedesgController.clear();
-      _topicController.clear();
-      _ugaiRecoveryController.clear();
-      _grievanceController.clear();
-      _otherPointController.clear();
       _selectedImages = [null];
+      for (final c in _controllers.values) {
+        c.clear();
+      }
     });
     _formKey.currentState!.reset();
   }
+
+  Future<String?> _fetchDocumentNumberFromServer() async {
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/generateDocumentNumber');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(_selectedAreaCode ?? 'KKR'), // Use selected area code or fallback to KKR
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        String? documentNumber;
+        if (data is Map<String, dynamic>) {
+          documentNumber = data['documentNumber'] ?? data['DocumentNumber'] ?? data['docNumber'] ?? data['DocNumber'];
+        } else if (data is String) {
+          documentNumber = data;
+        }
+        
+        // Save to persistent storage
+        if (documentNumber != null) {
+          await DocumentNumberStorage.saveDocumentNumber(DocumentNumberKeys.phoneCallBuilder, documentNumber);
+        }
+        
+        return documentNumber;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Widget dropdownButtonProcessType({
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+    String? Function(String?)? validator,
+    bool enabled = true,
+  }) => DropdownButtonFormField<String>(
+    value: value,
+    isExpanded: true,
+    decoration: InputDecoration(
+      filled: true,
+      fillColor: Colors.grey[200],
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    ),
+    items: items.map((it) => DropdownMenuItem(value: it, child: Text(it))).toList(),
+    onChanged: enabled
+        ? (v) async {
+            setState(() {
+              _selectedProcessType = v;
+            });
+            if (v == "Update") {
+              // Only generate document number if we don't already have one
+              if (_documentNumber == null) {
+                setState(() {
+                  _documentNumberController.text = "Generating...";
+                });
+                
+                try {
+                  final docNumber = await _fetchDocumentNumberFromServer();
+                  setState(() {
+                    _documentNumber = docNumber;
+                    _documentNumberController.text = docNumber ?? "";
+                  });
+                } catch (e) {
+                  setState(() {
+                    _documentNumberController.text = "Error generating document number";
+                  });
+                }
+              } else {
+                // If we already have a document number, just display it
+                setState(() {
+                  _documentNumberController.text = _documentNumber!;
+                });
+              }
+            } else {
+              // For "Add" or any other process type, just clear the display but keep the document number in memory
+              setState(() {
+                _documentNumberController.text = "";
+              });
+            }
+          }
+        : null,
+    validator: validator,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -755,12 +903,31 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
           child: ListView(
             children: [
               _buildLabel('Process type'),
-              _buildDropdownField(
+              dropdownButtonProcessType(
                 value: _selectedProcessType,
                 items: _processTypes,
-                onChanged: _onProcessTypeChanged,
-                isLoading: _isLoadingProcessTypes,
+                onChanged: (val) {
+                  setState(() {
+                    _selectedProcessType = val;
+                  });
+                },
+                validator: (val) => val == null || val == 'Select' ? 'Please select a Process Type' : null,
+                enabled: true,
               ),
+              if (_selectedProcessType == "Update")
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: TextFormField(
+                    controller: _documentNumberController,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: "Document Number",
+                      filled: true,
+                      fillColor: Colors.grey[200],
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 10),
               _buildLabel('Submission Date'),
               TextFormField(
@@ -775,7 +942,7 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
                     borderRadius: BorderRadius.circular(SparshBorderRadius.md),
                     borderSide: BorderSide.none,
                   ),
-                  suffixIcon: Icon(Icons.lock, color: Colors.grey),
+                  suffixIcon: const Icon(Icons.lock, color: Colors.grey),
                   contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
                 ),
                 validator: (val) => val == null || val.isEmpty ? 'Submission date required' : null,
@@ -801,7 +968,7 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
               ),
               const SizedBox(height: 10),
               _buildLabel('Area Code'),
-              // Custom dropdown for Area Code: display 'code - name', value is code
+              // Area code dropdown
               Container(
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -816,15 +983,31 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
                         isExpanded: true,
                         value: _selectedAreaCode,
                         underline: Container(),
-                        items: _areaCodes.map((area) {
-                          final code = area['code']!;
-                          final name = area['name']!;
+                        items: _areaCodes.map((areaCode) {
+                          final code = areaCode['code']!;
+                          final name = areaCode['name']!;
                           return DropdownMenuItem(
                             value: code,
-                            child: Text(code == 'Select' ? 'Select' : '$code - $name'),
+                            child: Text(code == 'Select' ? 'Select' : name),
                           );
                         }).toList(),
-                        onChanged: _onAreaCodeChanged,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedAreaCode = value;
+                          });
+                          // Fetch purchasers when area code changes
+                          if (value != null && value != 'Select') {
+                            _fetchPurchasers(value);
+                          } else {
+                            // Reset purchaser and purchaser code when area code is deselected
+                            setState(() {
+                              _purchasers = [{'code': 'Select', 'name': 'Select'}];
+                              _selectedPurchaser = 'Select';
+                              _selectedPurchaserCode = 'Select';
+                              _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
+                            });
+                          }
+                        },
                       ),
               ),
               const SizedBox(height: 10),
@@ -857,52 +1040,39 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
               ),
               const SizedBox(height: 10),
               _buildLabel('Purchaser Code'),
-              _buildDropdownField(
-                value: _selectedPurchaserCode,
-                items: _purchaserCodes.map((code) => code['name']!).toList(),
-                onChanged: (value) {
-                  final selectedCode = _purchaserCodes.firstWhere(
-                    (code) => code['name'] == value,
-                    orElse: () => {'code': 'Select', 'name': 'Select'},
+              Builder(
+                builder: (context) {
+                  final itemsList = _purchaserCodes
+                      .map((code) => code['code'] == 'Select'
+                          ? 'Select'
+                          : '${code['code']} - ${code['name']}')
+                      .toList();
+                  print('Dropdown itemsList: $itemsList');
+                  String? dropdownValue = _selectedPurchaserCode == 'Select'
+                      ? 'Select'
+                      : (_purchaserCodes.firstWhere(
+                              (c) => c['code'] == _selectedPurchaserCode,
+                              orElse: () => {'code': 'Select', 'name': 'Select'})['code'] == 'Select'
+                          ? 'Select'
+                          : '${_selectedPurchaserCode} - ${_purchaserCodes.firstWhere((c) => c['code'] == _selectedPurchaserCode, orElse: () => {'name': ''})['name']}');
+                  return _buildDropdownField(
+                    value: dropdownValue,
+                    items: itemsList,
+                    onChanged: (value) {
+                      setState(() {
+                        if (value == 'Select') {
+                          _selectedPurchaserCode = 'Select';
+                        } else {
+                          _selectedPurchaserCode = value?.split(' - ')?.first ?? 'Select';
+                        }
+                      });
+                    },
+                    isLoading: _isLoadingPurchaserCodes,
                   );
-                  _onPurchaserCodeChanged(selectedCode['code']);
                 },
-                isLoading: _isLoadingPurchaserCodes,
               ),
               const SizedBox(height: 10),
-              _buildLabel('Site Name'),
-              _buildTextField('Enter Site Name', controller: _siteController),
-              const SizedBox(height: 10),
-              _buildLabel('Contractor Working at Site'),
-              _buildTextField(
-                  'Enter Contractor Name', controller: _contractorController),
-              const SizedBox(height: 10),
-              _buildLabel('Met With'),
-              _buildDropdownField(
-                value: _metWithItem,
-                items: _metWithItems,
-                onChanged: (val) => setState(() => _metWithItem = val),
-              ),
-              const SizedBox(height: 10),
-              _buildLabel('Name and Designation of Person'),
-              _buildTextField(
-                  'Enter Name and Designation', controller: _namedesgController),
-              const SizedBox(height: 10),
-              _buildLabel('Topic Discussed'),
-              _buildTextField('Enter Topic Discussed',
-                  controller: _topicController, maxLines: 3),
-              const SizedBox(height: 10),
-              _buildLabel('Ugai Recovery Plans'),
-              _buildTextField('Enter Ugai Recovery Plans',
-                  controller: _ugaiRecoveryController, maxLines: 3),
-              const SizedBox(height: 10),
-              _buildLabel('Any Purchaser Grievances'),
-              _buildTextField('Enter Purchaser Grievances',
-                  controller: _grievanceController, maxLines: 3),
-              const SizedBox(height: 10),
-              _buildLabel('Any Other Point'),
-              _buildTextField('Enter Any Other Point',
-                  controller: _otherPointController, maxLines: 3),
+              ..._buildDynamicFields(),
               const SizedBox(height: 10),
               _buildLabel('Upload Images'),
               ...List.generate(_selectedImages.length, (i) {
@@ -1029,6 +1199,37 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
     );
   }
 
+  List<Widget> _buildDynamicFields() {
+    final config = activityFieldConfig[_selectedActivityType] ?? [];
+    return config.map((field) {
+      if (field['key'] == 'metWith') {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel(field['label']!),
+            _buildDropdownField(
+              value: _metWithItem,
+              items: _metWithItems,
+              onChanged: (val) => setState(() => _metWithItem = val),
+            ),
+          ],
+        );
+      } else {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel(field['label']!),
+            _buildTextField(
+              'Enter ${field['label']}',
+              controller: _controllers[field['key']!],
+              maxLines: field['key'] == 'topic' || field['key'] == 'ugaiRecovery' || field['key'] == 'grievance' || field['key'] == 'otherPoint' ? 3 : 1,
+            ),
+          ],
+        );
+      }
+    }).toList();
+  }
+
   Widget _buildLabel(String text) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Text(
@@ -1107,4 +1308,15 @@ class _PhoneCallWithBuilderState extends State<PhoneCallWithBuilder> {
         onTap: onTap,
         validator: (val) => val == null || val.isEmpty ? 'Select date' : null,
       );
+
+  // Add a method to reset the form (clear document number)
+  void _resetForm() {
+    setState(() {
+      _documentNumber = null;
+      _documentNumberController.clear();
+      _selectedProcessType = 'Select';
+      // Clear other form fields as needed
+    });
+    DocumentNumberStorage.clearDocumentNumber(DocumentNumberKeys.phoneCallBuilder); // Clear from persistent storage
+  }
 }

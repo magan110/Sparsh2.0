@@ -6,6 +6,10 @@ import 'package:learning2/core/theme/app_theme.dart';
 import 'dsr_entry.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../../core/utils/document_number_storage.dart';
+import 'dsr_exception_entry.dart';
 
 class MeetingWithNewPurchaser extends StatefulWidget {
   const MeetingWithNewPurchaser({super.key});
@@ -29,10 +33,24 @@ class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
   final List<File?> _selectedImages = [null];
   final _formKey = GlobalKey<FormState>();
 
+  final _documentNumberController = TextEditingController();
+  String? _documentNumber;
+
   @override
   void initState() {
     super.initState();
+    _loadInitialDocumentNumber();
     _setSubmissionDateToToday();
+  }
+
+  // Load document number when screen initializes
+  Future<void> _loadInitialDocumentNumber() async {
+    final savedDocNumber = await DocumentNumberStorage.loadDocumentNumber(DocumentNumberKeys.meetingNewPurchaser);
+    if (savedDocNumber != null) {
+      setState(() {
+        _documentNumber = savedDocNumber;
+      });
+    }
   }
 
   @override
@@ -42,6 +60,7 @@ class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
     _purchaserNameController.dispose();
     _topicDiscussedController.dispose();
     _remarksController.dispose();
+    _documentNumberController.dispose();
     super.dispose();
   }
 
@@ -57,10 +76,37 @@ class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedReportDate ?? now,
-      firstDate: threeDaysAgo,
-      lastDate: DateTime(now.year + 5),
+      firstDate: DateTime(now.year - 10),
+      lastDate: now,
     );
     if (picked != null) {
+      if (picked.isBefore(threeDaysAgo)) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Please Put Valid DSR Date.'),
+            content: const Text(
+              'You Can submit DSR only Last Three Days. If You want to submit back date entry Please enter Exception entry (Path : Transcation --> DSR Exception Entry). Take Approval from concerned and Fill DSR Within 3 days after approval.'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DsrExceptionEntryPage()),
+                  );
+                },
+                child: const Text('Go to Exception Entry'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
       setState(() {
         _selectedReportDate = picked;
         _reportDateController.text = DateFormat('yyyy-MM-dd').format(picked);
@@ -174,20 +220,15 @@ class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
     }
   }
 
+  // Add a method to reset the form (clear document number)
   void _resetForm() {
     setState(() {
+      _documentNumber = null;
+      _documentNumberController.clear();
       _processItem = 'Select';
-      _selectedSubmissionDate = null;
-      _selectedReportDate = null;
-      _submissionDateController.clear();
-      _reportDateController.clear();
-      _purchaserNameController.clear();
-      _topicDiscussedController.clear();
-      _remarksController.clear();
-      _uploadRows..clear()..add(0);
-      _selectedImages..clear()..add(null);
+      // Clear other form fields as needed
     });
-    _formKey.currentState!.reset();
+    DocumentNumberStorage.clearDocumentNumber(DocumentNumberKeys.meetingNewPurchaser); // Clear from persistent storage
   }
 
   Future<void> submitDsrEntry(Map<String, dynamic> dsrData) async {
@@ -203,6 +244,37 @@ class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
       print('✅ Data inserted successfully!');
     } else {
       print('❌ Data NOT inserted! Error: \\${response.body}');
+    }
+  }
+
+  Future<String?> _fetchDocumentNumberFromServer() async {
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/generateDocumentNumber');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode('KKR'), // Hardcoded to KKR
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        String? documentNumber;
+        if (data is Map<String, dynamic>) {
+          documentNumber = data['documentNumber'] ?? data['DocumentNumber'] ?? data['docNumber'] ?? data['DocNumber'];
+        } else if (data is String) {
+          documentNumber = data;
+        }
+        
+        // Save to persistent storage
+        if (documentNumber != null) {
+          await DocumentNumberStorage.saveDocumentNumber(DocumentNumberKeys.meetingNewPurchaser, documentNumber);
+        }
+        
+        return documentNumber;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      return null;
     }
   }
 
@@ -282,9 +354,58 @@ class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
               ),
               isExpanded: true,
               items: _processdropdownItems.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
-              onChanged: (val) => setState(() => _processItem = val),
+              onChanged: (val) async {
+                setState(() {
+                  _processItem = val;
+                });
+                
+                if (val == "Update") {
+                  // Only generate document number if we don't already have one
+                  if (_documentNumber == null) {
+                    setState(() {
+                      _documentNumberController.text = "Generating...";
+                    });
+                    
+                    try {
+                      final docNumber = await _fetchDocumentNumberFromServer();
+                      setState(() {
+                        _documentNumber = docNumber;
+                        _documentNumberController.text = docNumber ?? "";
+                      });
+                    } catch (e) {
+                      setState(() {
+                        _documentNumberController.text = "Error generating document number";
+                      });
+                    }
+                  } else {
+                    // If we already have a document number, just display it
+                    setState(() {
+                      _documentNumberController.text = _documentNumber!;
+                    });
+                  }
+                } else {
+                  // For "Add" or any other process type, just clear the display but keep the document number in memory
+                  setState(() {
+                    _documentNumberController.text = "";
+                  });
+                }
+              },
               validator: (val) => val == 'Select' ? 'Please select a process' : null,
             ),
+            if (_processItem == "Update")
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: TextFormField(
+                  controller: _documentNumberController,
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    labelText: "Document Number",
+                    filled: true,
+                    fillColor: Colors.grey[200],
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -312,7 +433,7 @@ class _MeetingWithNewPurchaserState extends State<MeetingWithNewPurchaser> {
                 filled: true,
                 fillColor: SparshTheme.lightGreyBackground,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.md), borderSide: BorderSide.none),
-                suffixIcon: Icon(Icons.lock, color: Colors.grey),
+                suffixIcon: const Icon(Icons.lock, color: Colors.grey),
                 contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
               ),
               validator: (val) => val == null || val.isEmpty ? 'Submission date required' : null,

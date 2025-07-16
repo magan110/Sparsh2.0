@@ -4,6 +4,8 @@ import 'package:learning2/features/dashboard/presentation/pages/home_screen.dart
 import 'package:learning2/data/network/firebase_api.dart';
 import 'package:learning2/features/dashboard/presentation/pages/notification_screen.dart';
 import 'package:learning2/core/theme/app_theme.dart';
+import 'package:learning2/features/dsr_entry/presentation/pages/dsr_entry.dart';
+import 'package:learning2/features/dsr_entry/presentation/pages/dsr_exception_entry.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
@@ -42,7 +44,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'SPARSH',
       theme: SparshTheme.lightTheme,
-      home: const HomeScreen(),
+      home: HomeScreen(),
     );
   }
 }

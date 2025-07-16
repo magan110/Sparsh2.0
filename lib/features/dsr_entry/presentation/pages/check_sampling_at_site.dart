@@ -4,9 +4,13 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/document_number_storage.dart';
 import 'dsr_entry.dart';
+import 'dsr_exception_entry.dart';
 
 class ApiConstants {
   static const String baseUrl = 'http://192.168.36.25/api';
@@ -29,20 +33,24 @@ class CheckSamplingAtSite extends StatefulWidget {
 class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
   // ─── State & Controllers ────────────────────────────────────────────────────
   // Dynamic dropdown state
-  List<String> _processTypes = ['Select'];
-  String? _selectedProcessType = 'Select';
+  List<Map<String, String>> _processTypes = [{'code': 'Select', 'description': 'Select'}];
+  String? _selectedProcessTypeDescription = 'Select';
+  String? _selectedProcessTypeCode;
   bool _isLoadingProcessTypes = true;
+
+    // Geolocation
+  Position? _currentPosition;
 
   List<String> _productNames = ['Select'];
   String? _selectedProductName = 'Select';
   bool _isLoadingProductNames = true;
 
   List<String> _qualityOptions = ['Select'];
-  String? _selectedQuality = 'Select';
+  final String? _selectedQuality = 'Select';
   bool _isLoadingQualityOptions = true;
 
   List<String> _statusOptions = ['Select'];
-  String? _selectedStatus = 'Select';
+  final String? _selectedStatus = 'Select';
   bool _isLoadingStatusOptions = true;
 
   String? _processItem = 'Select';
@@ -75,16 +83,55 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
   final List<XFile?> _selectedImages = [null];
   final _picker = ImagePicker();
 
+  final _documentNumberController = TextEditingController();
+  String? _documentNumber;
+
   final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
+        _initGeolocation();
+    _loadInitialDocumentNumber();
     _fetchProcessTypes();
     _fetchProductNames();
     _fetchQualityOptions();
     _fetchStatusOptions();
     _setSubmissionDateToToday();
+  }
+
+  Future<void> _initGeolocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) throw Exception('Location services disabled.');
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Location permissions denied.');
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Location permissions permanently denied.');
+      }
+      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        _currentPosition = pos;
+      });
+    } catch (e) {
+      debugPrint('Error getting location: $e');
+    }
+  }
+
+
+  // Load document number when screen initializes
+  Future<void> _loadInitialDocumentNumber() async {
+    final savedDocNumber = await DocumentNumberStorage.loadDocumentNumber(DocumentNumberKeys.checkSamplingSite);
+    if (savedDocNumber != null) {
+      setState(() {
+        _documentNumber = savedDocNumber;
+      });
+    }
   }
 
   Future<void> _fetchProcessTypes() async {
@@ -94,27 +141,33 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final processTypesList = (data['ProcessTypes'] ?? data['processTypes']) as List;
-        final processTypes = processTypesList.map((type) {
-          if (type is Map) {
-            return type['Description']?.toString() ?? type['description']?.toString() ?? type['Code']?.toString() ?? type['code']?.toString() ?? '';
-          } else {
-            return type.toString();
-          }
-        }).where((type) => type.isNotEmpty).toList();
-        setState(() {
-          _processTypes = ['Select', ...processTypes];
-          _isLoadingProcessTypes = false;
-        });
+        if (data is List) {
+          final processTypes = [
+            {'code': 'Select', 'description': 'Select'},
+            ...data.map<Map<String, String>>((item) => {
+              'code': item['Code']?.toString() ?? item['code']?.toString() ?? '',
+              'description': item['Description']?.toString() ?? item['description']?.toString() ?? '',
+            }).where((item) => item['code']!.isNotEmpty && item['description']!.isNotEmpty)
+          ];
+          setState(() {
+            _processTypes = processTypes;
+            _isLoadingProcessTypes = false;
+          });
+        } else {
+          setState(() {
+            _processTypes = [{'code': 'Select', 'description': 'Select'}];
+            _isLoadingProcessTypes = false;
+          });
+        }
       } else {
         setState(() {
-          _processTypes = ['Select'];
+          _processTypes = [{'code': 'Select', 'description': 'Select'}];
           _isLoadingProcessTypes = false;
         });
       }
     } catch (e) {
       setState(() {
-        _processTypes = ['Select'];
+        _processTypes = [{'code': 'Select', 'description': 'Select'}];
         _isLoadingProcessTypes = false;
       });
     }
@@ -208,6 +261,7 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
     _applicatorController.dispose();
     _contactNameController.dispose();
     _mobileController.dispose();
+    _documentNumberController.dispose();
     super.dispose();
   }
 
@@ -223,10 +277,37 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedReportDate ?? now,
-      firstDate: threeDaysAgo,
-      lastDate: DateTime(now.year + 5),
+      firstDate: DateTime(now.year - 10),
+      lastDate: now,
     );
     if (picked != null) {
+      if (picked.isBefore(threeDaysAgo)) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Please Put Valid DSR Date.'),
+            content: const Text(
+              'You Can submit DSR only Last Three Days. If You want to submit back date entry Please enter Exception entry (Path : Transcation --> DSR Exception Entry). Take Approval from concerned and Fill DSR Within 3 days after approval.'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DsrExceptionEntryPage()),
+                  );
+                },
+                child: const Text('Go to Exception Entry'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
       setState(() {
         _selectedReportDate = picked;
         _reportDateController.text = DateFormat('yyyy-MM-dd').format(picked);
@@ -237,14 +318,22 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
   Future<void> _pickDate(
     TextEditingController ctrl,
     DateTime? initialDate,
-    ValueChanged<DateTime> onSelected,
-  ) async {
+    ValueChanged<DateTime> onSelected, {
+    bool isReportDate = false,
+  }) async {
     final now = DateTime.now();
+    final firstDate = isReportDate 
+        ? now.subtract(const Duration(days: 3))  // Last 3 days for report date
+        : DateTime(2000);  // Any date for submission date
+    final lastDate = isReportDate 
+        ? now  // Today for report date
+        : DateTime(now.year + 5);  // Future date for submission date
+    
     final picked = await showDatePicker(
       context: context,
       initialDate: initialDate ?? now,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(now.year + 5),
+      firstDate: firstDate,
+      lastDate: lastDate,
     );
     if (picked != null) {
       onSelected(picked);
@@ -279,14 +368,18 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
     if (_selectedImages.length > 1) setState(() => _selectedImages.removeAt(idx));
   }
 
-  void _onSubmit({required bool exitAfter}) async {
-    if (!_formKey.currentState!.validate()) {
-      print('Form validation failed'); // DEBUG
-      return;
+  Future<void> _onSubmit({required bool exitAfter}) async {
+    if (!_formKey.currentState!.validate()) return;
+
+    // ensure we have location
+    if (_currentPosition == null) {
+      await _initGeolocation();
     }
+
 
     final dsrData = {
       'ActivityType': 'Visit to Get / Check Sampling at Site',
+      'ProcessType': _selectedProcessTypeCode ?? '',
       'SubmissionDate': _selectedDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
       'ReportDate': _selectedReportDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
       // 'CreateId': 'SYSTEM',
@@ -297,13 +390,16 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
       'dsrRem02': _selectedProductName ?? '',
       'dsrRem03': _potentialController.text,
       'dsrRem04': _applicatorController.text,
-      'dsrRem05': _selectedQuality ?? '',
-      'dsrRem06': _selectedStatus ?? '',
+      'dsrRem05': (_qualityItem != null && _qualityItem != 'Select') ? _qualityItem : '',
+      'dsrRem06': (_statusItem != null && _statusItem != 'Select') ? _statusItem : '',
       'dsrRem07': _contactNameController.text,
       'dsrRem08': _mobileController.text,
       // 'SupportingDocuments': _selectedImages.map((file) => file?.path).toList(),
+      // Geography
+      'latitude': _currentPosition?.latitude.toString() ?? '',
+      'longitude': _currentPosition?.longitude.toString() ?? '',
     };
-    print('Prepared DSR Data: ' + dsrData.toString()); // DEBUG
+    print('Prepared DSR Data: $dsrData'); // DEBUG
 
     try {
       await submitDsrEntry(dsrData);
@@ -351,7 +447,7 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
   }
 
   Future<void> submitDsrEntry(Map<String, dynamic> dsrData) async {
-    print('Submitting DSR Data: ' + dsrData.toString()); // DEBUG
+    print('Submitting DSR Data: $dsrData'); // DEBUG
     final url = Uri.parse(ApiConstants.url(ApiConstants.dsrTry));
     try {
       final response = await http.post(
@@ -369,6 +465,37 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
     } catch (e) {
       print('API Exception: ${e.toString()}'); // DEBUG
       rethrow;
+    }
+  }
+
+  Future<String?> _fetchDocumentNumberFromServer() async {
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/generateDocumentNumber');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode('KKR'), // Hardcoded to KKR
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        String? documentNumber;
+        if (data is Map<String, dynamic>) {
+          documentNumber = data['documentNumber'] ?? data['DocumentNumber'] ?? data['docNumber'] ?? data['DocNumber'];
+        } else if (data is String) {
+          documentNumber = data;
+        }
+        
+        // Save to persistent storage
+        if (documentNumber != null) {
+          await DocumentNumberStorage.saveDocumentNumber(DocumentNumberKeys.checkSamplingSite, documentNumber);
+        }
+        
+        return documentNumber;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      return null;
     }
   }
 
@@ -480,7 +607,7 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
             const Spacer(),
             if (_selectedImages.length > 1 && idx == _selectedImages.length - 1)
               IconButton(
-                icon: Icon(Icons.remove_circle_outline, color: SparshTheme.errorRed),
+                icon: const Icon(Icons.remove_circle_outline, color: SparshTheme.errorRed),
                 onPressed: () => _removeImageField(idx),
               ),
           ],
@@ -499,6 +626,28 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
         padding: const EdgeInsets.all(SparshSpacing.md),
         child: child,
       );
+
+  // Add a method to reset the form (clear document number)
+  void _resetForm() {
+    setState(() {
+      _documentNumber = null;
+      _documentNumberController.clear();
+      _processItem = 'Select';
+      // Clear other form fields as needed
+    });
+    DocumentNumberStorage.clearDocumentNumber(DocumentNumberKeys.checkSamplingSite); // Clear from persistent storage
+  }
+
+  void _onProcessTypeChanged(String? desc) {
+    setState(() {
+      _selectedProcessTypeDescription = desc;
+      final selected = _processTypes.firstWhere(
+        (item) => item['description'] == desc,
+        orElse: () => {'code': '', 'description': ''},
+      );
+      _selectedProcessTypeCode = selected['code'];
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -532,12 +681,75 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildLabel('Process Type'),
-                    _buildDropdown(
-                      value: _processItem,
-                      items: _processTypes,
-                      onChanged: (v) => setState(() => _processItem = v),
-                      validator: (v) => (v == null || v == 'Select') ? 'Required' : null,
+                    Container(
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.shade300, width: 1),
+                        color: Colors.white,
+                      ),
+                      child: _isLoadingProcessTypes
+                          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                          : DropdownButton<String>(
+                              isExpanded: true,
+                              value: _selectedProcessTypeDescription,
+                              underline: Container(),
+                              items: _processTypes.map((item) {
+                                return DropdownMenuItem(
+                                  value: item['description'],
+                                  child: Text(item['description']!),
+                                );
+                              }).toList(),
+                              onChanged: (desc) {
+                                _onProcessTypeChanged(desc);
+                                if (desc == "Update") {
+                                  // Only generate document number if we don't already have one
+                                  if (_documentNumber == null) {
+                                    setState(() {
+                                      _documentNumberController.text = "Generating...";
+                                    });
+                                    try {
+                                      _fetchDocumentNumberFromServer().then((docNumber) {
+                                        setState(() {
+                                          _documentNumber = docNumber;
+                                          _documentNumberController.text = docNumber ?? "";
+                                        });
+                                      });
+                                    } catch (e) {
+                                      setState(() {
+                                        _documentNumberController.text = "Error generating document number";
+                                      });
+                                    }
+                                  } else {
+                                    // If we already have a document number, just display it
+                                    setState(() {
+                                      _documentNumberController.text = _documentNumber!;
+                                    });
+                                  }
+                                } else {
+                                  // For "Add" or any other process type, just clear the display but keep the document number in memory
+                                  setState(() {
+                                    _documentNumberController.text = "";
+                                  });
+                                }
+                              },
+                            ),
                     ),
+                    if (_selectedProcessTypeDescription == "Update")
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: TextFormField(
+                          controller: _documentNumberController,
+                          readOnly: true,
+                          decoration: InputDecoration(
+                            labelText: "Document Number",
+                            filled: true,
+                            fillColor: Colors.grey[200],
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -565,7 +777,7 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
                           horizontal: SparshSpacing.md,
                           vertical: SparshSpacing.sm,
                         ),
-                        suffixIcon: Icon(Icons.lock, color: Colors.grey),
+                        suffixIcon: const Icon(Icons.lock, color: Colors.grey),
                       ),
                       validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
                     ),
@@ -721,14 +933,14 @@ class _CheckSamplingAtSiteState extends State<CheckSamplingAtSite> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
                         Icon(
                           Icons.photo_library_rounded,
                           color: SparshTheme.primaryBlueAccent,
                           size: SparshIconSize.lg,
                         ),
-                        const SizedBox(width: SparshSpacing.sm),
+                        SizedBox(width: SparshSpacing.sm),
                         Expanded(
                           child: Text(
                             'Supporting Documents',

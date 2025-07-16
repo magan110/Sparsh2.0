@@ -4,9 +4,13 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/document_number_storage.dart';
 import 'dsr_entry.dart';
+import 'dsr_exception_entry.dart';
 
 class OnLeave extends StatefulWidget {
   const OnLeave({super.key});
@@ -17,8 +21,12 @@ class OnLeave extends StatefulWidget {
 class _OnLeaveState extends State<OnLeave> {
   final _formKey = GlobalKey<FormState>();
 
-  String? _processItem = 'Select';
-  List<String> _processdropdownItems = ['Select'];
+    // Geolocation
+  Position? _currentPosition;
+
+  // Change process dropdown to hold maps with code and description
+  Map<String, String>? _processItem = null; // selected item
+  List<Map<String, String>> _processdropdownItems = [];
   bool _isLoadingProcessTypes = true;
   String? _processTypeError;
 
@@ -28,12 +36,50 @@ class _OnLeaveState extends State<OnLeave> {
 
   List<File?> _selectedImages = [null];
 
+  final _documentNumberController = TextEditingController();
+  String? _documentNumber;
+
   @override
   void initState() {
     super.initState();
+        _initGeolocation();
+    _loadInitialDocumentNumber();
     _fetchProcessTypes();
     _setSubmissionDateToToday();
   }
+
+  // Load document number when screen initializes
+  Future<void> _loadInitialDocumentNumber() async {
+    final savedDocNumber = await DocumentNumberStorage.loadDocumentNumber(DocumentNumberKeys.onLeave);
+    if (savedDocNumber != null) {
+      setState(() {
+        _documentNumber = savedDocNumber;
+      });
+    }
+  }
+  Future<void> _initGeolocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) throw Exception('Location services disabled.');
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Location permissions denied.');
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Location permissions permanently denied.');
+      }
+      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        _currentPosition = pos;
+      });
+    } catch (e) {
+      debugPrint('Error getting location: $e');
+    }
+  }
+
 
   Future<void> _fetchProcessTypes() async {
     setState(() { _isLoadingProcessTypes = true; _processTypeError = null; });
@@ -42,28 +88,39 @@ class _OnLeaveState extends State<OnLeave> {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final processTypesList = (data['ProcessTypes'] ?? data['processTypes']) as List;
-        final processTypes = processTypesList.map((type) {
+        List processTypesList = [];
+        if (data is List) {
+          processTypesList = data;
+        } else if (data is Map && (data['ProcessTypes'] != null || data['processTypes'] != null)) {
+          processTypesList = (data['ProcessTypes'] ?? data['processTypes']) as List;
+        }
+        final processTypes = processTypesList.map<Map<String, String>>((type) {
           if (type is Map) {
-            return type['Description']?.toString() ?? type['description']?.toString() ?? type['Code']?.toString() ?? type['code']?.toString() ?? '';
+            return {
+              'code': type['Code']?.toString() ?? type['code']?.toString() ?? '',
+              'description': type['Description']?.toString() ?? type['description']?.toString() ?? '',
+            };
           } else {
-            return type.toString();
+            return {'code': type.toString(), 'description': type.toString()};
           }
-        }).where((type) => type.isNotEmpty).toList();
+        }).where((type) => type['code']!.isNotEmpty && type['description']!.isNotEmpty).toList();
         setState(() {
-          _processdropdownItems = ['Select', ...processTypes];
+          _processdropdownItems = processTypes;
+          _processItem = null;
           _isLoadingProcessTypes = false;
         });
       } else {
         setState(() {
-          _processdropdownItems = ['Select'];
+          _processdropdownItems = [];
+          _processItem = null;
           _isLoadingProcessTypes = false;
           _processTypeError = 'Failed to load process types.';
         });
       }
     } catch (e) {
       setState(() {
-        _processdropdownItems = ['Select'];
+        _processdropdownItems = [];
+        _processItem = null;
         _isLoadingProcessTypes = false;
         _processTypeError = 'Failed to load process types.';
       });
@@ -81,10 +138,37 @@ class _OnLeaveState extends State<OnLeave> {
     final picked = await showDatePicker(
       context: context,
       initialDate: now,
-      firstDate: threeDaysAgo,
-      lastDate: DateTime(now.year + 5),
+      firstDate: DateTime(now.year - 10),
+      lastDate: now,
     );
     if (picked != null) {
+      if (picked.isBefore(threeDaysAgo)) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Please Put Valid DSR Date.'),
+            content: const Text(
+              'You Can submit DSR only Last Three Days. If You want to submit back date entry Please enter Exception entry (Path : Transcation --> DSR Exception Entry). Take Approval from concerned and Fill DSR Within 3 days after approval.'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DsrExceptionEntryPage()),
+                  );
+                },
+                child: const Text('Go to Exception Entry'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
       setState(() {
         _reportDateController.text = DateFormat('yyyy-MM-dd').format(picked);
       });
@@ -96,7 +180,39 @@ class _OnLeaveState extends State<OnLeave> {
     _submissionDateController.dispose();
     _reportDateController.dispose();
     _remarksController.dispose();
+    _documentNumberController.dispose();
     super.dispose();
+  }
+
+  // Update document number fetch to use selected code
+  Future<String?> _fetchDocumentNumberFromServer() async {
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/generateDocumentNumber');
+      final areaCode = _processItem != null ? _processItem!['code'] : null;
+      if (areaCode == null || areaCode.isEmpty) return null;
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(areaCode),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        String? documentNumber;
+        if (data is Map<String, dynamic>) {
+          documentNumber = data['documentNumber'] ?? data['DocumentNumber'] ?? data['docNumber'] ?? data['DocNumber'];
+        } else if (data is String) {
+          documentNumber = data;
+        }
+        if (documentNumber != null) {
+          await DocumentNumberStorage.saveDocumentNumber(DocumentNumberKeys.onLeave, documentNumber);
+        }
+        return documentNumber;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<void> _pickImage(int index) async {
@@ -118,7 +234,7 @@ class _OnLeaveState extends State<OnLeave> {
   }
 
   Future<void> submitDsrEntry(Map<String, dynamic> dsrData) async {
-    print('Submitting DSR Data: ' + dsrData.toString()); // DEBUG
+    print('Submitting DSR Data: $dsrData'); // DEBUG
     final url = Uri.parse('http://192.168.36.25/api/DsrTry');
     try {
       final response = await http.post(
@@ -139,30 +255,23 @@ class _OnLeaveState extends State<OnLeave> {
     }
   }
 
-  void _onSubmit({required bool exitAfter}) async {
-    if (!_formKey.currentState!.validate()) {
-      print('Form validation failed'); // DEBUG
-      return;
+  Future<void> _onSubmit({required bool exitAfter}) async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_currentPosition == null) {
+      await _initGeolocation();
     }
-
+  
     final dsrData = {
       'ActivityType': 'On Leave / Holiday / Off Day',
       'SubmissionDate': _submissionDateController.text,
       'ReportDate': _reportDateController.text,
-      'CreateId': 'SYSTEM',
-      'AreaCode': _processItem ?? '',
-      'Purchaser': _processItem ?? '',
-      'PurchaserCode': '',
+    
+     
       'dsrRem01': _remarksController.text,
-      'dsrRem02': '',
-      'dsrRem03': '',
-      'dsrRem04': '',
-      'dsrRem05': '',
-      'dsrRem06': '',
-      'dsrRem07': '',
-      'dsrRem08': '',
+      'latitude': _currentPosition?.latitude.toString() ?? '',
+      'longitude': _currentPosition?.longitude.toString() ?? '',
     };
-    print('Prepared DSR Data: ' + dsrData.toString()); // DEBUG
+    print('Prepared DSR Data: $dsrData'); // DEBUG
 
     try {
       await submitDsrEntry(dsrData);
@@ -193,13 +302,24 @@ class _OnLeaveState extends State<OnLeave> {
 
   void _clearForm() {
     setState(() {
-      _processItem = 'Select';
+      _processItem = null;
       _submissionDateController.clear();
       _reportDateController.clear();
       _remarksController.clear();
       _selectedImages = [null];
     });
     _formKey.currentState!.reset();
+  }
+
+  // Add a method to reset the form (clear document number)
+  void _resetForm() {
+    setState(() {
+      _documentNumber = null;
+      _documentNumberController.clear();
+      _processItem = null;
+      // Clear other form fields as needed
+    });
+    DocumentNumberStorage.clearDocumentNumber(DocumentNumberKeys.onLeave); // Clear from persistent storage
   }
 
   @override
@@ -226,15 +346,59 @@ class _OnLeaveState extends State<OnLeave> {
             children: [
               _buildLabel('Process type'),
               if (_processTypeError != null)
-                Text(_processTypeError!, style: TextStyle(color: Colors.red)),
+                Text(_processTypeError!, style: const TextStyle(color: Colors.red)),
               _isLoadingProcessTypes
                 ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                 : _buildDropdownField(
                     value: _processItem,
                     items: _processdropdownItems,
-                    onChanged: (val) => setState(() => _processItem = val),
-                    enabled: _processdropdownItems.length > 1,
+                    onChanged: (val) async {
+                      setState(() {
+                        _processItem = val;
+                      });
+                      if (val != null && val['description'] == "Update") {
+                        if (_documentNumber == null) {
+                          setState(() {
+                            _documentNumberController.text = "Generating...";
+                          });
+                          try {
+                            final docNumber = await _fetchDocumentNumberFromServer();
+                            setState(() {
+                              _documentNumber = docNumber;
+                              _documentNumberController.text = docNumber ?? "";
+                            });
+                          } catch (e) {
+                            setState(() {
+                              _documentNumberController.text = "Error generating document number";
+                            });
+                          }
+                        } else {
+                          setState(() {
+                            _documentNumberController.text = _documentNumber!;
+                          });
+                        }
+                      } else {
+                        setState(() {
+                          _documentNumberController.text = "";
+                        });
+                      }
+                    },
+                    enabled: _processdropdownItems.isNotEmpty,
                   ),
+              if (_processItem != null && _processItem!['description'] == "Update")
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: TextFormField(
+                    controller: _documentNumberController,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: "Document Number",
+                      filled: true,
+                      fillColor: Colors.grey[200],
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
               const SizedBox(height: SparshSpacing.sm),
               _buildLabel('Submission Date'),
               TextFormField(
@@ -249,7 +413,7 @@ class _OnLeaveState extends State<OnLeave> {
                     borderRadius: BorderRadius.circular(SparshBorderRadius.md),
                     borderSide: BorderSide.none,
                   ),
-                  suffixIcon: Icon(Icons.lock, color: Colors.grey),
+                  suffixIcon: const Icon(Icons.lock, color: Colors.grey),
                   contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.sm, vertical: SparshSpacing.sm),
                 ),
                 validator: (val) => val == null || val.isEmpty ? 'Required' : null,
@@ -315,7 +479,7 @@ class _OnLeaveState extends State<OnLeave> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.check_circle, color: SparshTheme.successGreen, size: 16),
+                                  const Icon(Icons.check_circle, color: SparshTheme.successGreen, size: 16),
                                   const SizedBox(width: SparshSpacing.xs),
                                   Text(
                                     'Uploaded',
@@ -355,7 +519,7 @@ class _OnLeaveState extends State<OnLeave> {
                                   _selectedImages.removeAt(i);
                                 });
                               },
-                              icon: Icon(Icons.remove_circle_outline, color: SparshTheme.errorRed),
+                              icon: const Icon(Icons.remove_circle_outline, color: SparshTheme.errorRed),
                             ),
                           ]
                         ],
@@ -427,10 +591,11 @@ class _OnLeaveState extends State<OnLeave> {
         validator: (val) => val == null || val.isEmpty ? 'Required' : null,
       );
 
+  // Update dropdown field to use new structure
   Widget _buildDropdownField({
-    required String? value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
+    required Map<String, String>? value,
+    required List<Map<String, String>> items,
+    required ValueChanged<Map<String, String>?> onChanged,
     bool enabled = true,
   }) =>
       Container(
@@ -441,11 +606,15 @@ class _OnLeaveState extends State<OnLeave> {
           border: Border.all(color: SparshTheme.borderGrey, width: 1),
           color: SparshTheme.cardBackground,
         ),
-        child: DropdownButton<String>(
+        child: DropdownButton<Map<String, String>>(
           isExpanded: true,
           value: value,
           underline: Container(),
-          items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
+          hint: const Text('Select'),
+          items: items.map((item) => DropdownMenuItem(
+            value: item,
+            child: Text(item['description'] ?? ''),
+          )).toList(),
           onChanged: enabled ? onChanged : null,
         ),
       );

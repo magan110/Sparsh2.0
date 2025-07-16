@@ -185,14 +185,15 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    final threeDaysAgo = now.subtract(const Duration(days: 3));
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? now,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(now.year + 5),
+      firstDate: threeDaysAgo,
+      lastDate: now,  // Only allow up to today
       builder: (ctx, child) => Theme(
         data: ThemeData.light().copyWith(
-          colorScheme: ColorScheme.light(
+          colorScheme: const ColorScheme.light(
             primary: SparshTheme.primaryBlueAccent,
             onPrimary: Colors.white,
             onSurface: SparshTheme.textPrimary,
@@ -258,7 +259,7 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
         ),
         title: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.warning_amber_rounded,
               color: SparshTheme.warningOrange,
               size: SparshSpacing.lg,
@@ -347,7 +348,7 @@ class _DsrRetailerInOutState extends State<DsrRetailerInOut>
         ),
         title: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.info_outline,
               color: SparshTheme.primaryBlue,
               size: SparshSpacing.lg,

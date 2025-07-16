@@ -4,9 +4,13 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/document_number_storage.dart';
 import 'dsr_entry.dart';
+import 'dsr_exception_entry.dart';
 
 class InternalTeamMeeting extends StatefulWidget {
   const InternalTeamMeeting({super.key});
@@ -16,8 +20,13 @@ class InternalTeamMeeting extends StatefulWidget {
 }
 
 class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
-  String? _processItem = 'Select';
-  List<String> _processdropdownItems = ['Select'];
+
+    // Geolocation
+  Position? _currentPosition;
+
+  List<Map<String, String>> _processTypes = [{'code': 'Select', 'description': 'Select'}];
+  String? _selectedProcessTypeDescription = 'Select';
+  String? _selectedProcessTypeCode;
   bool _isLoadingProcessTypes = true;
   String? _processTypeError;
 
@@ -32,13 +41,52 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
   final ImagePicker _picker = ImagePicker();
   final List<List<String>> _selectedImagePaths = [[]]; // multiple per row
 
+  final _documentNumberController = TextEditingController();
+  String? _documentNumber;
+
   final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
+        _initGeolocation();
+    _loadInitialDocumentNumber();
     _fetchProcessTypes();
     _setSubmissionDateToToday();
+  }
+
+  Future<void> _initGeolocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) throw Exception('Location services disabled.');
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Location permissions denied.');
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Location permissions permanently denied.');
+      }
+      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        _currentPosition = pos;
+      });
+    } catch (e) {
+      debugPrint('Error getting location: $e');
+    }
+  }
+
+
+  // Load document number when screen initializes
+  Future<void> _loadInitialDocumentNumber() async {
+    final savedDocNumber = await DocumentNumberStorage.loadDocumentNumber(DocumentNumberKeys.internalTeamMeeting);
+    if (savedDocNumber != null) {
+      setState(() {
+        _documentNumber = savedDocNumber;
+      });
+    }
   }
 
   Future<void> _fetchProcessTypes() async {
@@ -48,28 +96,35 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final processTypesList = (data['ProcessTypes'] ?? data['processTypes']) as List;
-        final processTypes = processTypesList.map((type) {
-          if (type is Map) {
-            return type['Description']?.toString() ?? type['description']?.toString() ?? type['Code']?.toString() ?? type['code']?.toString() ?? '';
-          } else {
-            return type.toString();
-          }
-        }).where((type) => type.isNotEmpty).toList();
-        setState(() {
-          _processdropdownItems = ['Select', ...processTypes];
-          _isLoadingProcessTypes = false;
-        });
+        if (data is List) {
+          final processTypes = [
+            {'code': 'Select', 'description': 'Select'},
+            ...data.map<Map<String, String>>((item) => {
+              'code': item['Code']?.toString() ?? item['code']?.toString() ?? '',
+              'description': item['Description']?.toString() ?? item['description']?.toString() ?? '',
+            }).where((item) => item['code']!.isNotEmpty && item['description']!.isNotEmpty)
+          ];
+          setState(() {
+            _processTypes = processTypes;
+            _isLoadingProcessTypes = false;
+          });
+        } else {
+          setState(() {
+            _processTypes = [{'code': 'Select', 'description': 'Select'}];
+            _isLoadingProcessTypes = false;
+            _processTypeError = 'Failed to load process types.';
+          });
+        }
       } else {
         setState(() {
-          _processdropdownItems = ['Select'];
+          _processTypes = [{'code': 'Select', 'description': 'Select'}];
           _isLoadingProcessTypes = false;
           _processTypeError = 'Failed to load process types.';
         });
       }
     } catch (e) {
       setState(() {
-        _processdropdownItems = ['Select'];
+        _processTypes = [{'code': 'Select', 'description': 'Select'}];
         _isLoadingProcessTypes = false;
         _processTypeError = 'Failed to load process types.';
       });
@@ -87,10 +142,37 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: threeDaysAgo,
-      lastDate: DateTime(now.year + 5),
+      firstDate: DateTime(now.year - 10),
+      lastDate: now,
     );
     if (picked != null) {
+      if (picked.isBefore(threeDaysAgo)) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Please Put Valid DSR Date.'),
+            content: const Text(
+              'You Can submit DSR only Last Three Days. If You want to submit back date entry Please enter Exception entry (Path : Transcation --> DSR Exception Entry). Take Approval from concerned and Fill DSR Within 3 days after approval.'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DsrExceptionEntryPage()),
+                  );
+                },
+                child: const Text('Go to Exception Entry'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
       setState(() {
         _reportDateController.text = DateFormat('yyyy-MM-dd').format(picked);
       });
@@ -104,6 +186,7 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
     _meetwithController.dispose();
     _meetdiscController.dispose();
     _learnnngController.dispose();
+    _documentNumberController.dispose();
     super.dispose();
   }
 
@@ -177,30 +260,37 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
     );
   }
 
-  void _onSubmit({required bool exitAfter}) async {
-    if (!_formKey.currentState!.validate()) {
-      print('Form validation failed'); // DEBUG
-      return;
+  Future<void> _onSubmit({required bool exitAfter}) async {
+    if (!_formKey.currentState!.validate()) return;
+
+    // ensure we have location
+    if (_currentPosition == null) {
+      await _initGeolocation();
     }
+
 
     final dsrData = {
       'ActivityType': 'Internal Team Meetings / Review Meetings',
+      'ProcessType': _selectedProcessTypeCode ?? '',
       'SubmissionDate': _submissionDateController.text,
       'ReportDate': _reportDateController.text,
-      'CreateId': 'SYSTEM',
-      'AreaCode': _processItem ?? '',
-      'Purchaser': _meetwithController.text,
-      'PurchaserCode': '',
-      'dsrRem01': _meetdiscController.text,
-      'dsrRem02': _learnnngController.text,
-      'dsrRem03': '',
-      'dsrRem04': '',
-      'dsrRem05': '',
-      'dsrRem06': '',
-      'dsrRem07': '',
-      'dsrRem08': '',
+      
+     
+     
+      'dsrRem01': _meetwithController.text,
+      'dsrRem02': _meetdiscController.text,
+      'dsrRem03': _learnnngController.text,
+      // 'dsrRem04': '',
+      // 'dsrRem05': '',
+      // 'dsrRem06': '',
+      // 'dsrRem07': '',
+      // 'dsrRem08': '',
+      // Geography
+      'latitude': _currentPosition?.latitude.toString() ?? '',
+      'longitude': _currentPosition?.longitude.toString() ?? '',
+
     };
-    print('Prepared DSR Data: ' + dsrData.toString()); // DEBUG
+    print('Prepared DSR Data: $dsrData'); // DEBUG
 
     try {
       await submitDsrEntry(dsrData);
@@ -218,7 +308,8 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
       } else {
         _formKey.currentState!.reset();
         setState(() {
-          _processItem = 'Select';
+          _selectedProcessTypeDescription = 'Select';
+          _selectedProcessTypeCode = null;
           _submissionDateController.clear();
           _reportDateController.clear();
           _meetwithController.clear();
@@ -244,7 +335,7 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
   }
 
   Future<void> submitDsrEntry(Map<String, dynamic> dsrData) async {
-    print('Submitting DSR Data: ' + dsrData.toString()); // DEBUG
+    print('Submitting DSR Data: $dsrData'); // DEBUG
     final url = Uri.parse('http://192.168.36.25/api/DsrTry');
     try {
       final response = await http.post(
@@ -263,6 +354,60 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
       print('API Exception: ${e.toString()}'); // DEBUG
       rethrow;
     }
+  }
+
+  Future<String?> _fetchDocumentNumberFromServer() async {
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/generateDocumentNumber');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'areaCode': _selectedProcessTypeCode ?? 'KKR'}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        String? documentNumber;
+        if (data is Map<String, dynamic>) {
+          documentNumber = data['documentNumber'] ?? data['DocumentNumber'] ?? data['docNumber'] ?? data['DocNumber'];
+        } else if (data is String) {
+          documentNumber = data;
+        }
+        
+        // Save to persistent storage
+        if (documentNumber != null) {
+          await DocumentNumberStorage.saveDocumentNumber(DocumentNumberKeys.internalTeamMeeting, documentNumber);
+        }
+        
+        return documentNumber;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Add a method to reset the form (clear document number)
+  void _resetForm() {
+    setState(() {
+      _documentNumber = null;
+      _documentNumberController.clear();
+      _selectedProcessTypeDescription = 'Select';
+      _selectedProcessTypeCode = null;
+      // Clear other form fields as needed
+    });
+    DocumentNumberStorage.clearDocumentNumber(DocumentNumberKeys.internalTeamMeeting); // Clear from persistent storage
+  }
+
+  void _onProcessTypeChanged(String? desc) {
+    setState(() {
+      _selectedProcessTypeDescription = desc;
+      final selected = _processTypes.firstWhere(
+        (item) => item['description'] == desc,
+        orElse: () => {'code': '', 'description': ''},
+      );
+      _selectedProcessTypeCode = selected['code'];
+    });
   }
 
   @override
@@ -301,11 +446,11 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (_processTypeError != null)
-                        Text(_processTypeError!, style: TextStyle(color: Colors.red)),
+                        Text(_processTypeError!, style: const TextStyle(color: Colors.red)),
                       _isLoadingProcessTypes
                         ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                         : DropdownButtonFormField<String>(
-                            value: _processItem,
+                            value: _selectedProcessTypeDescription,
                             decoration: InputDecoration(
                               labelText: "Process Type",
                               filled: true,
@@ -313,12 +458,65 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             ),
-                            items: _processdropdownItems
-                                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+                            items: _processTypes
+                                .map((item) => DropdownMenuItem(value: item['description'], child: Text(item['description']!)))
                                 .toList(),
-                            onChanged: _processdropdownItems.length > 1 ? (val) => setState(() => _processItem = val) : null,
+                            onChanged: (desc) {
+                              setState(() {
+                                _selectedProcessTypeDescription = desc;
+                                final selected = _processTypes.firstWhere(
+                                  (item) => item['description'] == desc,
+                                  orElse: () => {'code': '', 'description': ''},
+                                );
+                                _selectedProcessTypeCode = selected['code'];
+                              });
+                              if (desc == "Update") {
+                                // Only generate document number if we don't already have one
+                                if (_documentNumber == null) {
+                                  setState(() {
+                                    _documentNumberController.text = "Generating...";
+                                  });
+                                  try {
+                                    _fetchDocumentNumberFromServer().then((docNumber) {
+                                      setState(() {
+                                        _documentNumber = docNumber;
+                                        _documentNumberController.text = docNumber ?? "";
+                                      });
+                                    });
+                                  } catch (e) {
+                                    setState(() {
+                                      _documentNumberController.text = "Error generating document number";
+                                    });
+                                  }
+                                } else {
+                                  // If we already have a document number, just display it
+                                  setState(() {
+                                    _documentNumberController.text = _documentNumber!;
+                                  });
+                                }
+                              } else {
+                                // For "Add" or any other process type, just clear the display but keep the document number in memory
+                                setState(() {
+                                  _documentNumberController.text = "";
+                                });
+                              }
+                            },
                             validator: (val) => (val == null || val == 'Select') ? 'Please select a process' : null,
                           ),
+                      if (_selectedProcessTypeDescription == "Update")
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: TextFormField(
+                            controller: _documentNumberController,
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              labelText: "Document Number",
+                              filled: true,
+                              fillColor: Colors.grey[200],
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -342,7 +540,7 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
                           filled: true,
                           fillColor: SparshTheme.lightGreyBackground,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                          suffixIcon: Icon(Icons.lock, color: Colors.grey),
+                          suffixIcon: const Icon(Icons.lock, color: Colors.grey),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
                         validator: (val) => (val == null || val.isEmpty) ? 'Please select submission date' : null,
@@ -357,7 +555,7 @@ class _InternalTeamMeetingState extends State<InternalTeamMeeting> {
                           filled: true,
                           fillColor: SparshTheme.lightGreyBackground,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                          suffixIcon: Icon(Icons.calendar_today),
+                          suffixIcon: const Icon(Icons.calendar_today),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
                         validator: (val) => (val == null || val.isEmpty) ? 'Please select report date' : null,

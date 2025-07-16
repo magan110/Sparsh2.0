@@ -5,10 +5,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dsr_entry.dart';
 import 'package:learning2/core/constants/fonts.dart';
 import 'package:learning2/core/theme/app_theme.dart';
+import 'package:learning2/core/utils/document_number_storage.dart';
+import 'dsr_exception_entry.dart';
 
 class MeetingsWithContractor extends StatefulWidget {
   const MeetingsWithContractor({super.key});
@@ -19,19 +22,23 @@ class MeetingsWithContractor extends StatefulWidget {
 
 class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
   // Dynamic dropdown state
-  List<String> _processTypes = ['Select'];
-  String? _selectedProcessType = 'Select';
+  List<Map<String, String>> _processTypes = [{'code': 'Select', 'description': 'Select'}];
+  String? _selectedProcessTypeDescription = 'Select';
+  String? _selectedProcessTypeCode;
   bool _isLoadingProcessTypes = true;
 
   List<Map<String, String>> _areaCodes = [];
   String? _selectedAreaCode = 'Select';
   bool _isLoadingAreaCodes = true;
 
-  List<Map<String, String>> _purchasers = [];
-  String? _selectedPurchaser = 'Select';
+  // Purchaser dropdown state
+  List<Map<String, String>> _purchasers = [{'code': 'Select', 'description': 'Select'}];
+  String? _selectedPurchaserDescription = 'Select';
+  String? _selectedPurchaserCodeValue;
   bool _isLoadingPurchasers = false;
 
-  List<Map<String, String>> _purchaserCodes = [];
+  // Purchaser code dropdown state
+  List<Map<String, String>> _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
   String? _selectedPurchaserCode = 'Select';
   bool _isLoadingPurchaserCodes = false;
 
@@ -44,45 +51,55 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
   final ImagePicker _picker      = ImagePicker();
   final List<File?> _selectedImages = [null];
   
+  final _documentNumberController = TextEditingController();
+  String? _documentNumber;
+  
   // Controllers for Action Remarks rows
   final List<TextEditingController> _actionPointsControllers = [TextEditingController()];
   final List<TextEditingController> _closerDateControllers = [TextEditingController()];
 
   // Product dropdown state
   String? _selectedProduct = 'Select';
+  // Add controllers for text fields that lose state
+  final TextEditingController _newOrdersController = TextEditingController();
+  final TextEditingController _ugaiRecoveryController = TextEditingController();
+  final TextEditingController _grievanceController = TextEditingController();
+  final TextEditingController _otherPointsController = TextEditingController();
   // Coordinate controllers (if you choose to display these)
-  final TextEditingController _yourLatitudeController  = TextEditingController();
-  final TextEditingController _yourLongitudeController = TextEditingController();
-  final TextEditingController _custLatitudeController  = TextEditingController();
-  final TextEditingController _custLongitudeController = TextEditingController();
-
-  // Hidden required fields for your original API (kept hidden in UI)
-  final TextEditingController _contrnamController  = TextEditingController();
-  final TextEditingController _topcdissController  = TextEditingController();
-  final TextEditingController _remarkscController  = TextEditingController();
 
   final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
+    _loadInitialDocumentNumber();
     _fetchProcessTypes();
     _fetchAreaCodes();
+    _fetchPurchasers();
     _setSubmissionDateToToday();
+  }
+
+  // Load document number when screen initializes
+  Future<void> _loadInitialDocumentNumber() async {
+    final savedDocNumber = await DocumentNumberStorage.loadDocumentNumber(DocumentNumberKeys.meetingsContractor);
+    if (savedDocNumber != null) {
+      setState(() {
+        _documentNumber = savedDocNumber;
+      });
+    }
   }
 
   @override
   void dispose() {
     _submissionDateController.dispose();
     _reportDateController.dispose();
-    _yourLatitudeController.dispose();
-    _yourLongitudeController.dispose();
-    _custLatitudeController.dispose();
-    _custLongitudeController.dispose();
-    _contrnamController.dispose();
-    _topcdissController.dispose();
-    _remarkscController.dispose();
-    
+   
+    _documentNumberController.dispose();
+    // Dispose new controllers
+    _newOrdersController.dispose();
+    _ugaiRecoveryController.dispose();
+    _grievanceController.dispose();
+    _otherPointsController.dispose();
     // Dispose Action Remarks controllers
     for (var controller in _actionPointsControllers) {
       controller.dispose();
@@ -90,7 +107,6 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
     for (var controller in _closerDateControllers) {
       controller.dispose();
     }
-    
     super.dispose();
   }
 
@@ -106,11 +122,11 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedReportDate ?? now,
-      firstDate: threeDaysAgo,
-      lastDate: DateTime(now.year + 5),
+      firstDate: DateTime(now.year - 10),
+      lastDate: now,
       builder: (context, child) => Theme(
         data: ThemeData.light().copyWith(
-          colorScheme: ColorScheme.light(
+          colorScheme: const ColorScheme.light(
             primary: SparshTheme.primaryBlueAccent,
             onPrimary: Colors.white,
             onSurface: SparshTheme.textPrimary,
@@ -121,6 +137,33 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
       ),
     );
     if (picked != null) {
+      if (picked.isBefore(threeDaysAgo)) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Please Put Valid DSR Date.'),
+            content: const Text(
+              'You Can submit DSR only Last Three Days. If You want to submit back date entry Please enter Exception entry (Path : Transcation --> DSR Exception Entry). Take Approval from concerned and Fill DSR Within 3 days after approval.'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DsrExceptionEntryPage()),
+                  );
+                },
+                child: const Text('Go to Exception Entry'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
       setState(() {
         _selectedReportDate = picked;
         _reportDateController.text = DateFormat('yyyy-MM-dd').format(picked);
@@ -195,17 +238,18 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
 
     // Map form fields to DsrEntryDto structure
     final dsrData = {
-      'ActivityType': 'Meetings with Contractor / Stockist',
+      'ActivityType': _selectedProcessTypeCode == 'U' ? 'Meetings with Contractor / Stockist' : 'Meetings with Contractor / Stockist', // or use code if needed
+      'ProcessType': _selectedProcessTypeCode ?? '',
       'SubmissionDate': _selectedSubmissionDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
       'ReportDate': _selectedReportDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
-      'CreateId': 'SYSTEM',
+      
       'AreaCode': _selectedAreaCode ?? '',
-      'Purchaser': _selectedPurchaser ?? '',
+      'Purchaser': _selectedPurchaserCodeValue ?? '',
       'PurchaserCode': _selectedPurchaserCode ?? '',
-      'dsrRem01': _contrnamController.text,
-      'dsrRem02': _topcdissController.text,
-      'dsrRem03': _remarkscController.text,
-      'dsrRem04': '',
+      'dsrRem01': _newOrdersController.text,
+      'dsrRem02': _ugaiRecoveryController.text,
+      'dsrRem03': _grievanceController.text,
+      'dsrRem04': _otherPointsController.text,
       'dsrRem05': '',
       'dsrRem06': '',
       'dsrRem07': '',
@@ -239,71 +283,54 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
     }
   }
 
+  // Add a method to reset the form (clear document number)
   void _resetForm() {
     setState(() {
-      _selectedProcessType = 'Select';
-      _selectedAreaCode = 'Select';
-      _selectedPurchaser = 'Select';
-      _selectedPurchaserCode = 'Select';
-
-      _selectedSubmissionDate = null;
-      _selectedReportDate     = null;
-      _submissionDateController.clear();
-      _reportDateController.clear();
-
-      _yourLatitudeController.clear();
-      _yourLongitudeController.clear();
-      _custLatitudeController.clear();
-      _custLongitudeController.clear();
-
-      _contrnamController.clear();
-      _topcdissController.clear();
-      _remarkscController.clear();
-
-      _uploadRows
-        ..clear()
-        ..add(0);
-      _selectedImages
-        ..clear()
-        ..add(null);
-      _actionPointsControllers
-        ..clear()
-        ..add(TextEditingController());
-      _closerDateControllers
-        ..clear()
-        ..add(TextEditingController());
+      _documentNumber = null;
+      _documentNumberController.clear();
+      _selectedProcessTypeDescription = 'Select';
+      _selectedProcessTypeCode = null;
+      // Clear other form fields as needed
     });
-    _formKey.currentState!.reset();
+    DocumentNumberStorage.clearDocumentNumber(DocumentNumberKeys.meetingsContractor); // Clear from persistent storage
   }
 
+  // Update fetch process types to store code and description
   Future<void> _fetchProcessTypes() async {
     setState(() { _isLoadingProcessTypes = true; });
     try {
       final url = Uri.parse('http://192.168.36.25/api/DsrTry/getProcessTypes');
       final response = await http.get(url);
+      print('ProcessTypes API status: ${response.statusCode}');
+      print('ProcessTypes API raw body: ${response.body}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final processTypesList = (data['ProcessTypes'] ?? data['processTypes']) as List;
-        final processTypes = processTypesList.map((type) {
-          if (type is Map) {
-            return type['Description']?.toString() ?? type['description']?.toString() ?? type['Code']?.toString() ?? type['code']?.toString() ?? '';
-          } else {
-            return type.toString();
-          }
-        }).where((type) => type.isNotEmpty).toList();
-        setState(() {
-          _processTypes = ['Select', ...processTypes];
-          _isLoadingProcessTypes = false;
-        });
+        print('ProcessTypes API data: ${data}');
+        if (data is List) {
+          final processTypes = [
+            {'code': 'Select', 'description': 'Select'},
+            ...data.map<Map<String, String>>((item) => {
+              'code': item['code']?.toString() ?? '',
+              'description': item['description']?.toString() ?? '',
+            }).where((item) => item['code']!.isNotEmpty && item['description']!.isNotEmpty)
+          ];
+          print('Mapped processTypes: ${processTypes}');
+          setState(() {
+            _processTypes = processTypes;
+            _isLoadingProcessTypes = false;
+          });
+        }
       } else {
+        print('ProcessTypes API error status: ${response.statusCode}');
         setState(() {
-          _processTypes = ['Select'];
+          _processTypes = [{'code': 'Select', 'description': 'Select'}];
           _isLoadingProcessTypes = false;
         });
       }
     } catch (e) {
+      print('Error fetching process types: ${e}');
       setState(() {
-        _processTypes = ['Select'];
+        _processTypes = [{'code': 'Select', 'description': 'Select'}];
         _isLoadingProcessTypes = false;
       });
     }
@@ -361,72 +388,44 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
     }
   }
 
-  Future<void> _fetchPurchasers(String areaCode) async {
-    if (areaCode == 'Select') {
-      setState(() {
-        _purchasers = [{'code': 'Select', 'name': 'Select'}];
-        _selectedPurchaser = 'Select';
-        _selectedPurchaserCode = 'Select';
-        _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
-      });
-      return;
-    }
-    setState(() {
-      _isLoadingPurchasers = true;
-      _selectedPurchaser = 'Select';
-      _selectedPurchaserCode = 'Select';
-      _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
-    });
+  // Fetch Purchaser options
+  Future<void> _fetchPurchasers() async {
+    setState(() { _isLoadingPurchasers = true; });
     try {
       final url = Uri.parse('http://192.168.36.25/api/DsrTry/getPurchaserOptions');
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is List) {
-          // Remove duplicates by code
-          final seenCodes = <String>{};
-          final uniquePurchasers = [
-            {'code': 'Select', 'name': 'Select'},
-            ...data.map((item) => {
-              'code': item['Code']?.toString() ?? item['code']?.toString() ?? '',
-              'name': item['Description']?.toString() ?? item['description']?.toString() ?? '',
-            }).where((item) {
-              if (item['code']!.isEmpty || seenCodes.contains(item['code'])) return false;
-              seenCodes.add(item['code']!);
-              return true;
-            }).toList()
+          final purchasers = [
+            {'code': 'Select', 'description': 'Select'},
+            ...data.map<Map<String, String>>((item) => {
+              'code': item['code']?.toString() ?? '',
+              'description': item['description']?.toString() ?? '',
+            }).where((item) => item['code']!.isNotEmpty && item['description']!.isNotEmpty)
           ];
           setState(() {
-            _purchasers = uniquePurchasers;
-            _isLoadingPurchasers = false;
-            // Reset selected value if not present
-            final validCodes = _purchasers.map((p) => p['code']).toSet();
-            if (_selectedPurchaser == null || !validCodes.contains(_selectedPurchaser)) {
-              _selectedPurchaser = 'Select';
-            }
-          });
-        } else {
-          setState(() {
-            _purchasers = [{'code': 'Select', 'name': 'Select'}];
+            _purchasers = purchasers;
             _isLoadingPurchasers = false;
           });
         }
       } else {
         setState(() {
-          _purchasers = [{'code': 'Select', 'name': 'Select'}];
+          _purchasers = [{'code': 'Select', 'description': 'Select'}];
           _isLoadingPurchasers = false;
         });
       }
     } catch (e) {
       setState(() {
-        _purchasers = [{'code': 'Select', 'name': 'Select'}];
+        _purchasers = [{'code': 'Select', 'description': 'Select'}];
         _isLoadingPurchasers = false;
       });
     }
   }
 
-  Future<void> _fetchPurchaserCodes(String purchaserCode) async {
-    if (purchaserCode == 'Select' || _selectedAreaCode == 'Select') {
+  // Fetch Purchaser Codes
+  Future<void> _fetchPurchaserCodes(String areaCode, String purchaserFlag) async {
+    if (areaCode == 'Select' || purchaserFlag == 'Select') {
       setState(() {
         _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
         _selectedPurchaserCode = 'Select';
@@ -438,21 +437,20 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
       _selectedPurchaserCode = 'Select';
     });
     try {
-      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getPurchaserCode')
-          .replace(queryParameters: {
-        'areaCode': _selectedAreaCode,
-        'purchaserType': purchaserCode,
-      });
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/getPurchaserCode?areaCode=$areaCode&purchaserFlag=$purchaserFlag');
       final response = await http.get(url);
-      final data = jsonDecode(response.body);
-      if (data is Map && (data.containsKey('PurchaserCodes') || data.containsKey('purchaserCodes'))) {
-        final purchaserCodesList = (data['PurchaserCodes'] ?? data['purchaserCodes']) as List;
-        final purchaserCodes = purchaserCodesList.map((code) => code.toString()).toList();
-        if (purchaserCodes.isNotEmpty) {
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map && (data.containsKey('purchaserCodes') || data.containsKey('PurchaserCodes'))) {
+          final purchaserCodesList = (data['purchaserCodes'] ?? data['PurchaserCodes']) as List;
+          final purchaserCodes = purchaserCodesList.map((item) => {
+            'code': (item['code'] ?? item['Code'] ?? '').toString().trim(),
+            'name': (item['name'] ?? item['Name'] ?? item['code'] ?? item['Code'] ?? '').toString().trim(),
+          }).where((item) => item['code']!.isNotEmpty).toList();
           setState(() {
             _purchaserCodes = [
               {'code': 'Select', 'name': 'Select'},
-              ...purchaserCodes.map((code) => {'code': code, 'name': code}).toList()
+              ...purchaserCodes
             ];
             _isLoadingPurchaserCodes = false;
           });
@@ -476,34 +474,138 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
     }
   }
 
-  // Dropdown change handlers
-  void _onProcessTypeChanged(String? value) {
+  // Remove local generateDocumentNumber and add backend fetch logic
+  Future<String?> _fetchDocumentNumberFromServer() async {
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/generateDocumentNumber');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode('KKR'), // Hardcoded to KKR
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        String? documentNumber;
+        if (data is Map<String, dynamic>) {
+          documentNumber = data['DocumentNumber'] as String?;
+          if (documentNumber == null) documentNumber = data['documentNumber'] as String?;
+          if (documentNumber == null) documentNumber = data['docuNumb'] as String?;
+        } else if (data is String) {
+          documentNumber = data;
+        }
+        if (documentNumber != null && documentNumber.isNotEmpty) {
+          // Save to persistent storage
+          if (documentNumber != null) {
+            await DocumentNumberStorage.saveDocumentNumber(DocumentNumberKeys.meetingsContractor, documentNumber);
+          }
+          return documentNumber;
+        } else {
+          throw Exception('Invalid document number received from server');
+        }
+      } else {
+        return null;
+      }
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Update process type change handler to use code/description
+  void _onProcessTypeChanged(String? code) {
     setState(() {
-      _selectedProcessType = value;
+      _selectedProcessTypeCode = code;
+      final selected = _processTypes.firstWhere(
+        (item) => item['code'] == code,
+        orElse: () => {'code': '', 'description': ''},
+      );
+      _selectedProcessTypeDescription = selected['description'];
     });
+    if (code == "U") {
+      // Only generate document number if we don't already have one
+      if (_documentNumber == null) {
+        setState(() {
+          _documentNumberController.text = "Generating...";
+        });
+        try {
+          _fetchDocumentNumberFromServer().then((docNumber) {
+            setState(() {
+              _documentNumber = docNumber;
+              _documentNumberController.text = docNumber ?? "";
+            });
+          }).catchError((e) {
+            setState(() {
+              _selectedProcessTypeDescription = 'Select';
+              _selectedProcessTypeCode = null;
+              _documentNumber = null;
+              _documentNumberController.clear();
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to generate document number:  e.toString()}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          });
+        } catch (e) {
+          setState(() {
+            _selectedProcessTypeDescription = 'Select';
+            _selectedProcessTypeCode = null;
+            _documentNumber = null;
+            _documentNumberController.clear();
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to generate document number:  e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } else {
+        // If we already have a document number, just display it
+        setState(() {
+          _documentNumberController.text = _documentNumber!;
+        });
+      }
+    } else {
+      // For "Add" or any other process type, just clear the display but keep the document number in memory
+      setState(() {
+        _documentNumberController.text = "";
+      });
+    }
   }
   void _onAreaCodeChanged(String? value) {
     setState(() {
       _selectedAreaCode = value;
-      _selectedPurchaser = 'Select';
+      _selectedPurchaserDescription = 'Select';
+      _selectedPurchaserCodeValue = null;
       _selectedPurchaserCode = 'Select';
+      _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
     });
     if (value != null && value != 'Select') {
-      _fetchPurchasers(value);
+      // Optionally, you can refetch purchasers if they depend on area
+      //_fetchPurchasers();
     }
   }
-  void _onPurchaserChanged(String? value) {
+
+  void _onPurchaserChanged(String? desc) {
     setState(() {
-      _selectedPurchaser = value;
+      _selectedPurchaserDescription = desc;
+      final selected = _purchasers.firstWhere(
+        (item) => item['description'] == desc,
+        orElse: () => {'code': '', 'description': ''},
+      );
+      _selectedPurchaserCodeValue = selected['code'];
       _selectedPurchaserCode = 'Select';
+      _purchaserCodes = [{'code': 'Select', 'name': 'Select'}];
     });
-    if (value != null && value != 'Select') {
-      _fetchPurchaserCodes(value);
+    if (_selectedPurchaserCodeValue != null && _selectedPurchaserCodeValue != 'Select' && _selectedAreaCode != null && _selectedAreaCode != 'Select') {
+      _fetchPurchaserCodes(_selectedAreaCode!, _selectedPurchaserCodeValue!);
     }
   }
-  void _onPurchaserCodeChanged(String? value) {
+
+  void _onPurchaserCodeChanged(String? code) {
     setState(() {
-      _selectedPurchaserCode = value;
+      _selectedPurchaserCode = code;
     });
   }
 
@@ -522,7 +624,7 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
       readOnly: readOnly,
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(color: SparshTheme.textSecondary, fontSize: 16),
+        hintStyle: const TextStyle(color: SparshTheme.textSecondary, fontSize: 16),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.md), borderSide: BorderSide.none),
         filled: true,
         fillColor: SparshTheme.cardBackground,
@@ -542,7 +644,7 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
       readOnly: true,
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(color: SparshTheme.textSecondary, fontSize: 16),
+        hintStyle: const TextStyle(color: SparshTheme.textSecondary, fontSize: 16),
         suffixIcon: IconButton(icon: const Icon(Icons.calendar_today, color: SparshTheme.primaryBlueAccent), onPressed: onTap),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.md), borderSide: BorderSide.none),
         filled: true,
@@ -651,12 +753,12 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
           ),
         ),
         body: Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [SparshTheme.scaffoldBackground, SparshTheme.cardBackground],
-              stops: const [0.0, 1.0],
+              stops: [0.0, 1.0],
             ),
           ),
           child: Padding(
@@ -680,14 +782,41 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
                         ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                         : DropdownButton<String>(
                             isExpanded: true,
-                            value: _selectedProcessType,
+                            value: _selectedProcessTypeDescription,
                             underline: Container(),
-                            items: _processTypes
-                                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-                                .toList(),
-                            onChanged: _onProcessTypeChanged,
+                            items: _processTypes.map((item) {
+                              return DropdownMenuItem(
+                                value: item['description'],
+                                child: Text(item['description']!),
+                              );
+                            }).toList(),
+                            onChanged: (desc) {
+                              setState(() {
+                                _selectedProcessTypeDescription = desc;
+                                final selected = _processTypes.firstWhere(
+                                  (item) => item['description'] == desc,
+                                  orElse: () => {'code': '', 'description': ''},
+                                );
+                                _selectedProcessTypeCode = selected['code'];
+                              });
+                              _onProcessTypeChanged(_selectedProcessTypeCode);
+                            },
                           ),
                   ),
+                  if (_selectedProcessTypeCode == "U")
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: TextFormField(
+                        controller: _documentNumberController,
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          labelText: "Document Number",
+                          filled: true,
+                          fillColor: Colors.grey[200],
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
 
                   const SizedBox(height: 24),
                   _buildLabel('Submission Date'),
@@ -704,7 +833,7 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
                         borderRadius: BorderRadius.circular(SparshBorderRadius.md),
                         borderSide: BorderSide.none,
                       ),
-                      suffixIcon: Icon(Icons.lock, color: Colors.grey),
+                      suffixIcon: const Icon(Icons.lock, color: Colors.grey),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     ),
                     validator: (val) => (val == null || val.isEmpty) ? 'Please select a date' : null,
@@ -775,14 +904,12 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
                         ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                         : DropdownButton<String>(
                             isExpanded: true,
-                            value: _selectedPurchaser,
+                            value: _selectedPurchaserDescription,
                             underline: Container(),
-                            items: _purchasers.map((purchaser) {
-                              final code = purchaser['code']!;
-                              final name = purchaser['name']!;
+                            items: _purchasers.map((item) {
                               return DropdownMenuItem(
-                                value: code,
-                                child: Text(code == 'Select' ? 'Select' : name),
+                                value: item['description'],
+                                child: Text(item['description']!),
                               );
                             }).toList(),
                             onChanged: _onPurchaserChanged,
@@ -792,88 +919,48 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
                   const SizedBox(height: 24),
                   _buildLabel('Purchaser Code'),
                   const SizedBox(height: 8),
-                  Container(
-                    height: 48,
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey.shade300, width: 1),
-                      color: Colors.white,
-                    ),
-                    child: _isLoadingPurchaserCodes
-                        ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                        : DropdownButton<String>(
-                            isExpanded: true,
-                            value: _selectedPurchaserCode,
-                            underline: Container(),
-                            items: _purchaserCodes.map((code) {
-                              return DropdownMenuItem(
-                                value: code['code'],
-                                child: Text(code['code'] == 'Select' ? 'Select' : code['code']!),
-                              );
-                            }).toList(),
-                            onChanged: _onPurchaserCodeChanged,
-                          ),
+                  Builder(
+                    builder: (context) {
+                      return Container(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade300, width: 1),
+                          color: Colors.white,
+                        ),
+                        child: _isLoadingPurchaserCodes
+                            ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                            : DropdownButton<String>(
+                                isExpanded: true,
+                                value: _selectedPurchaserCode,
+                                underline: Container(),
+                                items: _purchaserCodes.map((item) {
+                                  final code = item['code']!;
+                                  final name = item['name']!;
+                                  return DropdownMenuItem(
+                                    value: code,
+                                    child: Text(code == 'Select' ? 'Select' : '$code - $name'),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedPurchaserCode = value ?? 'Select';
+                                  });
+                                },
+                              ),
+                      );
+                    },
                   ),
 
-                  // Product Name Dropdown (as per screenshot)
-                  const SizedBox(height: 24),
-                  _buildLabel('Product for which Sample is applied'),
-                  const SizedBox(height: 8),
-                  DropdownSearch<String>(
-                    items: const [
-                      'Select',
-                      'White Cement',
-                      'Wall Care Putty',
-                      'Textura',
-                      'Levelplast',
-                      'Wall Primer',
-                    ],
-                    selectedItem: _selectedProduct ?? 'Select',
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedProduct = value;
-                      });
-                    },
-                    popupProps: PopupProps.menu(
-                      showSearchBox: true,
-                      searchFieldProps: const TextFieldProps(
-                        decoration: InputDecoration(
-                          hintText: 'Search...',
-                          hintStyle: TextStyle(color: Colors.black54),
-                          fillColor: Colors.white,
-                          filled: true,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(8.0)),
-                            borderSide: BorderSide(color: Colors.blueAccent),
-                          ),
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                      itemBuilder: (context, item, isSelected) => Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(item, style: Fonts.body.copyWith(color: Colors.black87)),
-                      ),
-                    ),
-                    dropdownDecoratorProps: DropDownDecoratorProps(
-                      dropdownSearchDecoration: InputDecoration(
-                        hintText: 'Select',
-                        filled: true,
-                        fillColor: Colors.white,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      ),
-                    ),
-                  ),
+                 
 
                   const SizedBox(height: 24),
                   _buildLabel('New Orders Received'),
                   const SizedBox(height: 8),
                   _buildTextField(
                     'New Orders Received',
-                    controller: TextEditingController(), // Add controller if needed
+                    controller: _newOrdersController,
                   ),
 
                   const SizedBox(height: 24),
@@ -881,7 +968,7 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
                   const SizedBox(height: 8),
                   _buildTextField(
                     'Ugai Recovery Plans',
-                    controller: TextEditingController(), // Add controller if needed
+                    controller: _ugaiRecoveryController,
                     maxLines: 2,
                   ),
 
@@ -890,7 +977,7 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
                   const SizedBox(height: 8),
                   _buildTextField(
                     'Any Purchaser Grievances',
-                    controller: TextEditingController(), // Add controller if needed
+                    controller: _grievanceController,
                     maxLines: 2,
                   ),
 
@@ -899,7 +986,7 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
                   const SizedBox(height: 8),
                   _buildTextField(
                     'Any Other Points',
-                    controller: TextEditingController(), // Add controller if needed
+                    controller: _otherPointsController,
                     maxLines: 2,
                   ),
 
@@ -990,7 +1077,7 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.photo_library_rounded, color: SparshTheme.primaryBlueAccent, size: 24),
+                            const Icon(Icons.photo_library_rounded, color: SparshTheme.primaryBlueAccent, size: 24),
                             const SizedBox(width: 8),
                             Flexible(
                               child: Text(
@@ -1162,16 +1249,7 @@ class _MeetingsWithContractorState extends State<MeetingsWithContractor> {
                   ),
 
                   // Hidden offstage fields (unchanged UI)
-                  Offstage(
-                    offstage: true,
-                    child: Column(
-                      children: [
-                        TextFormField(controller: _contrnamController),
-                        TextFormField(controller: _topcdissController),
-                        TextFormField(controller: _remarkscController),
-                      ],
-                    ),
-                  ),
+                  
 
                   const SizedBox(height: 20),
                 ],

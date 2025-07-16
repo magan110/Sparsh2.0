@@ -96,8 +96,8 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
     final picked = await showDatePicker(
       context: context,
       initialDate: now,
-      firstDate: threeDaysAgo,
-      lastDate: DateTime(now.year + 5),
+      firstDate: DateTime(now.year - 10), // Allow any past date (last 10 years)
+      lastDate: now,  // Only allow up to today
     );
     if (picked != null) {
       setState(() {
@@ -283,7 +283,7 @@ class _PhoneCallWithUnregisterdPurchaserState extends State<PhoneCallWithUnregis
                     borderRadius: BorderRadius.circular(SparshBorderRadius.md),
                     borderSide: BorderSide.none,
                   ),
-                  suffixIcon: Icon(Icons.lock, color: Colors.grey),
+                  suffixIcon: const Icon(Icons.lock, color: Colors.grey),
                   contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
                 ),
                 validator: (val) => val == null || val.isEmpty ? 'Required' : null,

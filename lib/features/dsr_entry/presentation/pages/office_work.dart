@@ -4,9 +4,12 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/document_number_storage.dart';
 import 'dsr_entry.dart';
+import 'dsr_exception_entry.dart';
 
 class OfficeWork extends StatefulWidget {
   const OfficeWork({super.key});
@@ -26,11 +29,52 @@ class _OfficeWorkState extends State<OfficeWork> {
 
   List<File?> _selectedImages = [null];
 
+  final _documentNumberController = TextEditingController();
+  String? _documentNumber;
+
+  Position? _currentPosition;
+
   @override
   void initState() {
     super.initState();
+    _initGeolocation();
+    _loadInitialDocumentNumber();
     _setSubmissionDateToToday();
     _initializeFields();
+  }
+
+  Future<void> _initGeolocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) throw Exception('Location services disabled.');
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Location permissions denied.');
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Location permissions permanently denied.');
+      }
+      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        _currentPosition = pos;
+      });
+    } catch (e) {
+      debugPrint('Error getting location: $e');
+    }
+  }
+
+
+  // Load document number when screen initializes
+  Future<void> _loadInitialDocumentNumber() async {
+    final savedDocNumber = await DocumentNumberStorage.loadDocumentNumber(DocumentNumberKeys.officeWork);
+    if (savedDocNumber != null) {
+      setState(() {
+        _documentNumber = savedDocNumber;
+      });
+    }
   }
 
   void _setSubmissionDateToToday() {
@@ -162,7 +206,39 @@ class _OfficeWorkState extends State<OfficeWork> {
         field['controller'].dispose();
       }
     }
+    _documentNumberController.dispose();
     super.dispose();
+  }
+
+  Future<String?> _fetchDocumentNumberFromServer() async {
+    try {
+      final url = Uri.parse('http://192.168.36.25/api/DsrTry/generateDocumentNumber');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode('KKR'), // Hardcoded to KKR
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        String? documentNumber;
+        if (data is Map<String, dynamic>) {
+          documentNumber = data['documentNumber'] ?? data['DocumentNumber'] ?? data['docNumber'] ?? data['DocNumber'];
+        } else if (data is String) {
+          documentNumber = data;
+        }
+        
+        // Save to persistent storage
+        if (documentNumber != null) {
+          await DocumentNumberStorage.saveDocumentNumber(DocumentNumberKeys.officeWork, documentNumber);
+        }
+        
+        return documentNumber;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<void> _pickSubmissionDate() async {
@@ -186,10 +262,38 @@ class _OfficeWorkState extends State<OfficeWork> {
     final picked = await showDatePicker(
       context: context,
       initialDate: now,
-      firstDate: threeDaysAgo,
-      lastDate: DateTime(now.year + 5),
+      firstDate: DateTime(now.year - 10), // Allow any past date
+      lastDate: now, // Restrict to today or earlier
     );
     if (picked != null) {
+      // Check if picked date is before threeDaysAgo
+      if (picked.isBefore(threeDaysAgo)) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Please Put Valid DSR Date.'),
+            content: const Text(
+              'You Can submit DSR only Last Three Days. If You want to submit back date entry Please enter Exception entry(Path : Transcation --> DSR Exception Entry). Take Approval from concerned and Fill DSR Within 3 days after approval.'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DsrExceptionEntryPage()),
+                  );
+                },
+                child: const Text('Go to Exception Entry'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
       setState(() {
         _reportDateController.text = DateFormat('yyyy-MM-dd').format(picked);
       });
@@ -217,11 +321,16 @@ class _OfficeWorkState extends State<OfficeWork> {
   void _onSubmit({required bool exitAfter}) async {
     if (!_formKey.currentState!.validate()) return;
 
+    // ensure we have location
+    if (_currentPosition == null) {
+      await _initGeolocation();
+    }
+
     final dsrData = <String, dynamic>{
       'ActivityType': 'Office Work',
       'SubmissionDate': _submissionDateController.text,
       'ReportDate': _reportDateController.text,
-      'CreateId': 'SYSTEM',
+      
       // Map dynamic fields to their keys
       ...{
         for (final field in _fields)
@@ -231,6 +340,9 @@ class _OfficeWorkState extends State<OfficeWork> {
             field['key'] as String: field['controller'].text
       },
       'Images': _selectedImages.map((file) => file?.path).toList(),
+      // Geography
+      'latitude': _currentPosition?.latitude.toString() ?? '',
+      'longitude': _currentPosition?.longitude.toString() ?? '',
     };
 
     try {
@@ -251,7 +363,7 @@ class _OfficeWorkState extends State<OfficeWork> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Submission failed:  e.toString()}'),
           backgroundColor: SparshTheme.errorRed,
           behavior: SnackBarBehavior.floating,
@@ -274,6 +386,17 @@ class _OfficeWorkState extends State<OfficeWork> {
       _selectedImages = [null];
     });
     _formKey.currentState!.reset();
+  }
+
+  // Add a method to reset the form (clear document number)
+  void _resetForm() {
+    setState(() {
+      _documentNumber = null;
+      _documentNumberController.clear();
+      _fields[0]['value'] = 'Select';
+      // Clear other form fields as needed
+    });
+    DocumentNumberStorage.clearDocumentNumber(DocumentNumberKeys.officeWork); // Clear from persistent storage
   }
 
   Future<void> submitDsrEntry(Map<String, dynamic> dsrData) async {
@@ -336,21 +459,72 @@ class _OfficeWorkState extends State<OfficeWork> {
           child: ListView(
             children: [
               // Render dynamic fields
-              for (final field in _fields) ...[
-                _buildLabel(field['label']),
-                if (field['type'] == 'dropdown')
-                  _buildDropdownField(
-                    value: field['value'],
-                    items: List<String>.from(field['items']),
-                    onChanged: (val) => setState(() => field['value'] = val),
-                  )
-                else
-                  _buildTextField(
-                    field['label'],
-                    controller: field['controller'],
-                    keyboardType: field['type'] == 'number' ? TextInputType.number : TextInputType.text,
-                    maxLines: field['maxLines'] ?? 1,
+              // Only handle the Process Type dropdown and Document Number here
+              _buildLabel(_fields[0]['label']),
+              _buildDropdownField(
+                value: _fields[0]['value'],
+                items: List<String>.from(_fields[0]['items']),
+                onChanged: (val) async {
+                  setState(() {
+                    _fields[0]['value'] = val;
+                  });
+                  
+                  if (val == "Update") {
+                    // Only generate document number if we don't already have one
+                    if (_documentNumber == null) {
+                      setState(() {
+                        _documentNumberController.text = "Generating...";
+                      });
+                      
+                      try {
+                        final docNumber = await _fetchDocumentNumberFromServer();
+                        setState(() {
+                          _documentNumber = docNumber;
+                          _documentNumberController.text = docNumber ?? "";
+                        });
+                      } catch (e) {
+                        setState(() {
+                          _documentNumberController.text = "Error generating document number";
+                        });
+                      }
+                    } else {
+                      // If we already have a document number, just display it
+                      setState(() {
+                        _documentNumberController.text = _documentNumber!;
+                      });
+                    }
+                  } else {
+                    // For "Add" or any other process type, just clear the display but keep the document number in memory
+                    setState(() {
+                      _documentNumberController.text = "";
+                    });
+                  }
+                },
+              ),
+              if (_fields[0]['value'] == "Update")
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: TextFormField(
+                    controller: _documentNumberController,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: "Document Number",
+                      filled: true,
+                      fillColor: Colors.grey[200],
+                      border: const OutlineInputBorder(),
+                    ),
                   ),
+                ),
+              const SizedBox(height: SparshSpacing.sm),
+              // Render the rest of the fields (text/number)
+              for (final field in _fields.skip(1)) ...[
+                _buildLabel(field['label']),
+                _buildTextField(
+                  field['label'],
+                  controller: field['controller'],
+                  keyboardType: field['type'] == 'number' ? TextInputType.number : TextInputType.text,
+                  maxLines: field['maxLines'] ?? 1,
+                ),
                 const SizedBox(height: SparshSpacing.sm),
               ],
               _buildLabel('Submission Date'),
@@ -366,7 +540,7 @@ class _OfficeWorkState extends State<OfficeWork> {
                     borderRadius: BorderRadius.circular(SparshBorderRadius.md),
                     borderSide: BorderSide.none,
                   ),
-                  suffixIcon: Icon(Icons.lock, color: Colors.grey),
+                  suffixIcon: const Icon(Icons.lock, color: Colors.grey),
                   contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.sm, vertical: SparshSpacing.sm),
                 ),
                 validator: (val) => val == null || val.isEmpty ? 'Required' : null,
@@ -425,7 +599,7 @@ class _OfficeWorkState extends State<OfficeWork> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.check_circle, color: SparshTheme.successGreen, size: 16),
+                                  const Icon(Icons.check_circle, color: SparshTheme.successGreen, size: 16),
                                   const SizedBox(width: SparshSpacing.xs),
                                   Text(
                                     'Uploaded',
@@ -465,7 +639,7 @@ class _OfficeWorkState extends State<OfficeWork> {
                                   _selectedImages.removeAt(i);
                                 });
                               },
-                              icon: Icon(Icons.remove_circle_outline, color: SparshTheme.errorRed),
+                              icon: const Icon(Icons.remove_circle_outline, color: SparshTheme.errorRed),
                             ),
                           ]
                         ],

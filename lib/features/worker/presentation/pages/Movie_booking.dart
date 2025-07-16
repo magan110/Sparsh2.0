@@ -86,7 +86,7 @@ class _MovieBookingState extends State<MovieBooking> {
               decoration: InputDecoration(
                 contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.xl, vertical: SparshSpacing.md),
                 hintText: hintText,
-                hintStyle: TextStyle(color: SparshTheme.textSecondary),
+                hintStyle: const TextStyle(color: SparshTheme.textSecondary),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
                   borderSide: BorderSide.none,
@@ -231,7 +231,7 @@ class _MovieBookingState extends State<MovieBooking> {
         ),
       ),
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [SparshTheme.scaffoldBackground, SparshTheme.lightBlueBackground],
             begin: Alignment.topCenter,

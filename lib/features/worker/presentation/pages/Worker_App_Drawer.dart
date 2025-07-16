@@ -47,7 +47,7 @@ class _WorkerAppDrawerState extends State<WorkerAppDrawer> {
           children: [
             // Drawer header with Birla White
             DrawerHeader(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: SparshTheme.primaryBlueAccent,
                 gradient: SparshTheme.drawerHeaderGradient,
                 boxShadow: SparshShadows.md,

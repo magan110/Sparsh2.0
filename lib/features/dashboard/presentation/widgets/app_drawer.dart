@@ -83,7 +83,7 @@ class _AppDrawerState extends State<AppDrawer> {
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
                         print('Error loading drawer header image: $error');
-                        return Icon(
+                        return const Icon(
                           Icons.business,
                           size: 48,
                           color: SparshTheme.primaryBlue,

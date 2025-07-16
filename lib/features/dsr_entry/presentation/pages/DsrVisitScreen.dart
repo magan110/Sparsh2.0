@@ -264,7 +264,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                       const SizedBox(height: SparshSpacing.sm),
                       Row(
                         children: [
-                          Text('Name: ', style: SparshTypography.bodyBold),
+                          const Text('Name: ', style: SparshTypography.bodyBold),
                           Text(name ?? '', style: SparshTypography.body),
                         ],
                       ),
@@ -335,7 +335,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                       ),
                       const SizedBox(height: SparshSpacing.sm),
-                      Text('Participation of Display Contest *', style: SparshTypography.bodyBold),
+                      const Text('Participation of Display Contest *', style: SparshTypography.bodyBold),
                       Row(
                         children: [
                           Radio<String>(
@@ -359,7 +359,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         ],
                       ),
                       const SizedBox(height: SparshSpacing.sm),
-                      Text('Any Pending Issues (Yes/No) *', style: SparshTypography.bodyBold),
+                      const Text('Any Pending Issues (Yes/No) *', style: SparshTypography.bodyBold),
                       Row(
                         children: [
                           Radio<String>(
@@ -462,7 +462,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('WC (Industry Volume)', style: SparshTypography.bodyBold),
+                      const Text('WC (Industry Volume)', style: SparshTypography.bodyBold),
                       Wrap(
                         spacing: SparshSpacing.sm,
                         children: brandsWc.keys.map((brand) {
@@ -484,7 +484,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         onChanged: (v) => slWcVolume = v,
                       ),
                       const SizedBox(height: SparshSpacing.sm),
-                      Text('WCP (Industry Volume)', style: SparshTypography.bodyBold),
+                      const Text('WCP (Industry Volume)', style: SparshTypography.bodyBold),
                       Wrap(
                         spacing: SparshSpacing.sm,
                         children: brandsWcp.keys.map((brand) {
@@ -598,7 +598,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Order Booked in call/e meet', style: SparshTypography.bodyBold),
+                          const Text('Order Booked in call/e meet', style: SparshTypography.bodyBold),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
                             onPressed: addProductRow,
@@ -656,7 +656,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Market -- WCP (Highest selling SKU)', style: SparshTypography.bodyBold),
+                          const Text('Market -- WCP (Highest selling SKU)', style: SparshTypography.bodyBold),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
                             onPressed: addMarketSkuRow,
@@ -722,7 +722,7 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Gift Distribution', style: SparshTypography.bodyBold),
+                          const Text('Gift Distribution', style: SparshTypography.bodyBold),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
                             onPressed: addGiftRow,
@@ -896,17 +896,17 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                   children: [
                     OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: SparshTheme.primaryBlue, width: 2),
+                        side: const BorderSide(color: SparshTheme.primaryBlue, width: 2),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.lg)),
                         padding: const EdgeInsets.symmetric(vertical: SparshSpacing.lg),
                       ),
                       onPressed: () {
                         // TODO: Add another activity logic
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Add Another Activity (mock)')),
+                          const SnackBar(content: Text('Add Another Activity (mock)')),
                         );
                       },
-                      child: Text('Add Another Activity', style: SparshTypography.bodyBold),
+                      child: const Text('Add Another Activity', style: SparshTypography.bodyBold),
                     ),
                     const SizedBox(height: SparshSpacing.sm),
                     ElevatedButton(
@@ -920,26 +920,26 @@ class _DsrVisitScreenState extends State<DsrVisitScreen> {
                         if (_formKey.currentState!.validate()) {
                           // TODO: Handle submit & exit
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Submitted & Exit (mock)')),
+                            const SnackBar(content: Text('Submitted & Exit (mock)')),
                           );
                         }
                       },
-                      child: Text('Submit & Exit', style: SparshTypography.bodyBold),
+                      child: const Text('Submit & Exit', style: SparshTypography.bodyBold),
                     ),
                     const SizedBox(height: SparshSpacing.sm),
                     OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: SparshTheme.primaryBlueAccent, width: 2),
+                        side: const BorderSide(color: SparshTheme.primaryBlueAccent, width: 2),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SparshBorderRadius.lg)),
                         padding: const EdgeInsets.symmetric(vertical: SparshSpacing.lg),
                       ),
                       onPressed: () {
                         // TODO: Show submitted data logic
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Show Submitted Data (mock)')),
+                          const SnackBar(content: Text('Show Submitted Data (mock)')),
                         );
                       },
-                      child: Text('Click to See Submitted Data', style: SparshTypography.bodyBold),
+                      child: const Text('Click to See Submitted Data', style: SparshTypography.bodyBold),
                     ),
                   ],
                 ),
@@ -1002,15 +1002,15 @@ InputDecoration _fantasticInputDecoration(String label, {IconData? icon}) {
               fillColor: SparshTheme.lightGreyBackground,
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(SparshBorderRadius.md),
-      borderSide: BorderSide(color: SparshTheme.borderGrey, width: 1),
+      borderSide: const BorderSide(color: SparshTheme.borderGrey, width: 1),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(SparshBorderRadius.md),
-      borderSide: BorderSide(color: SparshTheme.borderGrey, width: 1),
+      borderSide: const BorderSide(color: SparshTheme.borderGrey, width: 1),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(SparshBorderRadius.md),
-      borderSide: BorderSide(color: SparshTheme.primaryBlue, width: 2),
+      borderSide: const BorderSide(color: SparshTheme.primaryBlue, width: 2),
     ),
     suffixIcon: icon != null ? Icon(icon, size: 20) : null,
     contentPadding: const EdgeInsets.symmetric(horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),

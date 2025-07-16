@@ -186,29 +186,29 @@ class ThemeShowcase extends StatelessWidget {
     return _buildSection(
       'Typography',
       Icons.text_fields,
-      Column(
+      const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Heading 1 - Display Large', style: SparshTypography.heading1),
-          const SizedBox(height: SparshSpacing.sm),
+          SizedBox(height: SparshSpacing.sm),
           Text('Heading 2 - Display Medium', style: SparshTypography.heading2),
-          const SizedBox(height: SparshSpacing.sm),
+          SizedBox(height: SparshSpacing.sm),
           Text('Heading 3 - Display Small', style: SparshTypography.heading3),
-          const SizedBox(height: SparshSpacing.sm),
+          SizedBox(height: SparshSpacing.sm),
           Text('Heading 4 - Headline Large', style: SparshTypography.heading4),
-          const SizedBox(height: SparshSpacing.sm),
+          SizedBox(height: SparshSpacing.sm),
           Text('Heading 5 - Headline Medium', style: SparshTypography.heading5),
-          const SizedBox(height: SparshSpacing.sm),
+          SizedBox(height: SparshSpacing.sm),
           Text('Heading 6 - Headline Small', style: SparshTypography.heading6),
-          const SizedBox(height: SparshSpacing.sm),
+          SizedBox(height: SparshSpacing.sm),
           Text('Body Large - Main content text', style: SparshTypography.bodyLarge),
-          const SizedBox(height: SparshSpacing.sm),
+          SizedBox(height: SparshSpacing.sm),
           Text('Body - Regular text', style: SparshTypography.body),
-          const SizedBox(height: SparshSpacing.sm),
+          SizedBox(height: SparshSpacing.sm),
           Text('Body Bold - Emphasized text', style: SparshTypography.bodyBold),
-          const SizedBox(height: SparshSpacing.sm),
+          SizedBox(height: SparshSpacing.sm),
           Text('Body Small - Secondary text', style: SparshTypography.bodySmall),
-          const SizedBox(height: SparshSpacing.sm),
+          SizedBox(height: SparshSpacing.sm),
           Text('Caption - Small helper text', style: SparshTypography.caption),
         ],
       ),
@@ -301,14 +301,14 @@ class ThemeShowcase extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(name, style: SparshTypography.bodyBold),
-                Text(
+                const Text(
                   'Modern and professional design',
                   style: SparshTypography.caption,
                 ),
               ],
             ),
           ),
-          Icon(
+          const Icon(
             Icons.arrow_forward_ios,
             color: SparshTheme.textTertiary,
             size: SparshIconSize.sm,
@@ -392,14 +392,14 @@ class ThemeShowcase extends StatelessWidget {
                           color: SparshTheme.successLight,
                           borderRadius: BorderRadius.circular(SparshBorderRadius.sm),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.check_circle,
                           color: SparshTheme.successGreen,
                           size: SparshIconSize.md,
                         ),
                       ),
                       const SizedBox(width: SparshSpacing.md),
-                      Expanded(
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -411,7 +411,7 @@ class ThemeShowcase extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: SparshSpacing.sm),
-                  Text(
+                  const Text(
                     'This is an example of a modern card component with subtle shadows and rounded corners.',
                     style: SparshTypography.body,
                   ),
@@ -427,14 +427,14 @@ class ThemeShowcase extends StatelessWidget {
                 gradient: SparshTheme.cardGradient,
                 borderRadius: BorderRadius.circular(SparshBorderRadius.md),
               ),
-              child: Row(
+              child: const Row(
                 children: [
                   Icon(
                     Icons.star,
                     color: SparshTheme.warningOrange,
                     size: SparshIconSize.lg,
                   ),
-                  const SizedBox(width: SparshSpacing.md),
+                  SizedBox(width: SparshSpacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

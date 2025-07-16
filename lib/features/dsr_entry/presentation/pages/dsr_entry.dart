@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:learning2/core/theme/app_theme.dart';
-
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -80,24 +79,12 @@ class _DsrEntryState extends State<DsrEntry> {
     }
   }
 
-  Widget _buildActivityGrid(double maxWidth) {
-    // Determine cols: phones=2, small tablets=3, large=4
-    int crossAxisCount = 2;
-    if (maxWidth >= 900) {
-      crossAxisCount = 4;
-    } else if (maxWidth >= 600) {
-      crossAxisCount = 3;
-    }
-    return GridView.builder(
+  Widget _buildActivityList() {
+    return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        childAspectRatio: 0.6, // Changed from 0.8 to 0.6 for taller cards
-        crossAxisSpacing: SparshSpacing.md,
-        mainAxisSpacing: SparshSpacing.md,
-      ),
       itemCount: _activityItems.length,
+      separatorBuilder: (context, index) => const SizedBox(height: SparshSpacing.md),
       itemBuilder: (context, i) {
         final label = _activityItems[i];
         final selected = _selectedActivity == label;
@@ -108,7 +95,7 @@ class _DsrEntryState extends State<DsrEntry> {
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            padding: EdgeInsets.all(SparshSpacing.lg),
+            padding: const EdgeInsets.all(SparshSpacing.sm),
             decoration: BoxDecoration(
               color: SparshTheme.cardBackground,
               borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
@@ -124,28 +111,29 @@ class _DsrEntryState extends State<DsrEntry> {
                 width: selected ? 2 : 1,
               ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
               children: [
                 Container(
                   decoration: BoxDecoration(
                     color: SparshTheme.primaryBlueAccent.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  padding: EdgeInsets.all(SparshSpacing.lg),
+                  padding: const EdgeInsets.all(SparshSpacing.sm),
                   child: Icon(
                     _activityIcons[label] ?? Icons.assignment,
-                    size: SparshIconSize.lg,
+                    size: SparshIconSize.md,
                     color: SparshTheme.primaryBlueAccent,
                   ),
                 ),
-                SizedBox(height: SparshSpacing.sm),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  softWrap: true,
-                  style: SparshTypography.bodySmall.copyWith(fontWeight: FontWeight.w600, color: SparshTheme.primaryBlueAccent),
+                const SizedBox(width: SparshSpacing.md),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: SparshTypography.bodyLarge.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: SparshTheme.primaryBlueAccent,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -162,122 +150,124 @@ class _DsrEntryState extends State<DsrEntry> {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(dsrData),
     );
-    print('Status: ${response.statusCode}');
-    print('Body: ${response.body}');
     if (response.statusCode == 201) {
-      print('✅ Data inserted successfully!');
+      debugPrint('✅ Data inserted successfully!');
     } else {
-      print('❌ Data NOT inserted! Error: ${response.body}');
+      debugPrint('❌ Data NOT inserted! Error: ${response.body}');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: SparshTheme.scaffoldBackground,
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const HomeScreen()),
-            ),
-          ),
-          title: Row(
-            children: [
-              const Icon(Icons.assignment_outlined, size: SparshIconSize.xxl),
-              SizedBox(width: SparshSpacing.sm),
-              Text(
-                'DSR Entry',
-                style: Theme.of(context)
-                    .textTheme
-                    .displaySmall
-                    ?.copyWith(color: Colors.white),
-              ),
-            ],
-          ),
-          backgroundColor: SparshTheme.primaryBlueAccent,
-          elevation: 0,
-          shape: const RoundedRectangleBorder(
-            borderRadius:
-            BorderRadius.only(bottomLeft: Radius.circular(SparshBorderRadius.xl), bottomRight: Radius.circular(SparshBorderRadius.xl)),
+    return Scaffold(
+      backgroundColor: SparshTheme.scaffoldBackground,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
           ),
         ),
-        body: LayoutBuilder(builder: (context, constraints) {
-          return SingleChildScrollView(
-            padding: EdgeInsets.all(SparshSpacing.lg),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Instructions
-                  Container(
-                    padding: EdgeInsets.all(SparshSpacing.lg),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2196F3),
-                      borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
-                      boxShadow: [
-                        BoxShadow(
-                          color: SparshTheme.textTertiary.withOpacity(0.3),
-                          blurRadius: 5,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Wrap(
-                          spacing: SparshSpacing.sm,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            Icon(Icons.info_outline, color: Colors.white, size: SparshIconSize.xxl),
-                            Text('Instructions',
-                                style: SparshTypography.heading5.copyWith(color: Colors.white)),
-                          ],
-                        ),
-                        SizedBox(height: SparshSpacing.sm),
-                        Text(
-                          'Fill in the details below to submit your daily sales report.',
-                          style: SparshTypography.body.copyWith(color: Colors.white70),
-                        ),
-                      ],
-                    ),
+        title: Row(
+          children: [
+            const Icon(Icons.assignment_outlined, size: SparshIconSize.xxl),
+            const SizedBox(width: SparshSpacing.sm),
+            Text(
+              'DSR Entry',
+              style: Theme.of(context)
+                  .textTheme
+                  .displaySmall
+                  ?.copyWith(color: Colors.white),
+            ),
+          ],
+        ),
+        backgroundColor: SparshTheme.primaryBlueAccent,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(SparshBorderRadius.xl),
+            bottomRight: Radius.circular(SparshBorderRadius.xl),
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: SparshSpacing.md, vertical: SparshSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Instructions container...
+            Container(
+              padding: const EdgeInsets.all(SparshSpacing.md),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2196F3),
+                borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
+                boxShadow: [
+                  BoxShadow(
+                    color: SparshTheme.textTertiary.withOpacity(0.3),
+                    blurRadius: 5,
+                    offset: const Offset(0, 3),
                   ),
-                  SizedBox(height: SparshSpacing.xl),
-
-                  // Activity Information
-                  Container(
-                    padding: EdgeInsets.all(SparshSpacing.lg),
-                    decoration: BoxDecoration(
-                      color: SparshTheme.cardBackground,
-                      borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
-                      boxShadow: [
-                        BoxShadow(
-                          color: SparshTheme.textTertiary.withOpacity(0.3),
-                          blurRadius: 5,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.only(left: SparshSpacing.sm, bottom: SparshSpacing.xs),
-                          child: Text('Activity Type',
-                              style: SparshTypography.bodyLarge.copyWith(fontWeight: FontWeight.w600, color: SparshTheme.textPrimary)),
-                        ),
-                        _buildActivityGrid(constraints.maxWidth),
-                      ],
-                    ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: SparshSpacing.sm,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Icon(Icons.info_outline,
+                          color: Colors.white, size: SparshIconSize.xxl),
+                      Text('Instructions',
+                          style: SparshTypography.heading5
+                              .copyWith(color: Colors.white)),
+                    ],
+                  ),
+                  const SizedBox(height: SparshSpacing.sm),
+                  Text(
+                    'Fill in the details below to submit your daily sales report.',
+                    style:
+                        SparshTypography.body.copyWith(color: Colors.white70),
                   ),
                 ],
               ),
             ),
-          );
-        }),
+            const SizedBox(height: SparshSpacing.md),
+
+            // Activity list
+            Form(
+              key: _formKey,
+              child: Container(
+                padding: const EdgeInsets.all(SparshSpacing.md),
+                decoration: BoxDecoration(
+                  color: SparshTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(SparshBorderRadius.xl),
+                  boxShadow: [
+                    BoxShadow(
+                      color: SparshTheme.textTertiary.withOpacity(0.3),
+                      blurRadius: 5,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(
+                          left: SparshSpacing.xs, bottom: SparshSpacing.xs),
+                      child: Text('Activity Type',
+                          style: SparshTypography.bodyLarge.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: SparshTheme.textPrimary)),
+                    ),
+                    _buildActivityList(),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

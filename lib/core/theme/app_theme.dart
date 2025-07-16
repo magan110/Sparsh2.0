@@ -461,14 +461,13 @@ class SparshTheme {
   // Dark Theme - Modern Dark Mode
   static ThemeData get darkTheme {
     return ThemeData.dark().copyWith(
-      useMaterial3: true,
       primaryColor: primaryBlue,
       scaffoldBackgroundColor: const Color(0xFF0F172A),
-      colorScheme: ColorScheme.dark(
+      colorScheme: const ColorScheme.dark(
         primary: primaryBlue,
         secondary: primaryBlueAccent,
-        surface: const Color(0xFF1E293B),
-        background: const Color(0xFF0F172A),
+        surface: Color(0xFF1E293B),
+        background: Color(0xFF0F172A),
         brightness: Brightness.dark,
       ),
       cardTheme: const CardThemeData(
